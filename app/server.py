@@ -1,4 +1,5 @@
 """FastAPI application — webhook receiver, health endpoint, graph runner."""
+
 from __future__ import annotations
 
 import hashlib
@@ -37,6 +38,7 @@ async def lifespan(_app: FastAPI):
         yield
 
         from app.services.github import _client as gh
+
         if gh is not None:
             await gh.close()
 
@@ -50,9 +52,14 @@ app = FastAPI(title="PR Review Agent", lifespan=lifespan)
 def _verify_signature(payload: bytes, signature: str, secret: str) -> bool:
     if not secret:
         return True
-    expected = "sha256=" + hmac.new(
-        secret.encode(), payload, hashlib.sha256,
-    ).hexdigest()
+    expected = (
+        "sha256="
+        + hmac.new(
+            secret.encode(),
+            payload,
+            hashlib.sha256,
+        ).hexdigest()
+    )
     return hmac.compare_digest(expected, signature)
 
 
@@ -106,7 +113,8 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
     pr_number = pr.get("number")
     head_sha = pr.get("head", {}).get("sha", "")
     delivery_id = request.headers.get(
-        "x-github-delivery", str(uuid.uuid4()),
+        "x-github-delivery",
+        str(uuid.uuid4()),
     )
     installation_id = payload.get("installation", {}).get("id")
 

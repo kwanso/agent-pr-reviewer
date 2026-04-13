@@ -1,4 +1,5 @@
 """Async Slack notification client."""
+
 from __future__ import annotations
 
 import structlog
@@ -30,7 +31,9 @@ class SlackNotifier:
             return
         try:
             await self._client.chat_postMessage(
-                channel=target_channel, text=message, mrkdwn=True,
+                channel=target_channel,
+                text=message,
+                mrkdwn=True,
             )
         except Exception as exc:
             log.error("slack_send_failed", error=str(exc))

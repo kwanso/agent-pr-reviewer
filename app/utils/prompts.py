@@ -3,6 +3,7 @@
 Returns LangChain message objects so nodes can pass them directly to
 ``ChatGoogleGenerativeAI.ainvoke``.
 """
+
 from __future__ import annotations
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -123,22 +124,28 @@ def build_system_prompt(
     review_mode: str = "deep",
 ) -> str:
     mode = _MODE_INSTRUCTIONS.get(review_mode, _MODE_INSTRUCTIONS["deep"])
-    ctx = f"\n## Repository context (may be incomplete)\n{repo_context}\n" if repo_context else ""
+    ctx = (
+        f"\n## Repository context (may be incomplete)\n{repo_context}\n"
+        if repo_context
+        else ""
+    )
 
-    return "\n".join([
-        "You are a Staff-level engineer performing a production-grade pull request review.",
-        "Your bar: owner mindset, systems thinking, zero tolerance for hand-wavy or generic feedback.",
-        "",
-        mode.strip(),
-        ctx,
-        _PHASE_0.strip(),
-        "",
-        _PHASE_1.strip(),
-        "",
-        _ANTI_HALLUCINATION.strip(),
-        "",
-        _STRUCTURED_OUTPUT.strip(),
-    ])
+    return "\n".join(
+        [
+            "You are a Staff-level engineer performing a production-grade pull request review.",
+            "Your bar: owner mindset, systems thinking, zero tolerance for hand-wavy or generic feedback.",
+            "",
+            mode.strip(),
+            ctx,
+            _PHASE_0.strip(),
+            "",
+            _PHASE_1.strip(),
+            "",
+            _ANTI_HALLUCINATION.strip(),
+            "",
+            _STRUCTURED_OUTPUT.strip(),
+        ]
+    )
 
 
 def build_user_prompt(
@@ -153,11 +160,12 @@ def build_user_prompt(
         "\nALLOWED_FILE_PATHS (only these may appear in file_path / inline comments):\n"
         + "\n".join(f"- {p}" for p in paths)
         if paths
-        else "\nALLOWED_FILE_PATHS: (not enumerated — use file_path=\"\" unless the path appears verbatim in the diff header)"
+        else '\nALLOWED_FILE_PATHS: (not enumerated — use file_path="" unless the path appears verbatim in the diff header)'
     )
     ctx = (
         f"\n## Relevant source context (from repository; may omit files)\n{rag_context}\n"
-        if rag_context else ""
+        if rag_context
+        else ""
     )
     return (
         f"## PR Title\n{title or '(no title)'}\n\n"
@@ -182,7 +190,13 @@ def build_review_messages(
 ) -> list[SystemMessage | HumanMessage]:
     return [
         SystemMessage(content=build_system_prompt(repo_context, review_mode)),
-        HumanMessage(content=build_user_prompt(
-            title, description, diff, rag_context, allowed_file_paths,
-        )),
+        HumanMessage(
+            content=build_user_prompt(
+                title,
+                description,
+                diff,
+                rag_context,
+                allowed_file_paths,
+            )
+        ),
     ]

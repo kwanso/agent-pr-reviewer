@@ -15,6 +15,7 @@ Graph topology::
 Checkpointing with ``AsyncSqliteSaver`` gives crash recovery and
 idempotency — each webhook delivery_id becomes a unique thread_id.
 """
+
 from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
@@ -25,7 +26,6 @@ from app.nodes.publish import handle_degraded, merge_results, post_results
 from app.nodes.review import advance_chunk, review_chunk
 from app.nodes.validate import validate_findings
 from app.state import PRReviewState
-
 
 # ── Routing functions ────────────────────────────────────────────────
 
@@ -103,28 +103,48 @@ def build_graph() -> StateGraph:
     builder.add_node("handle_degraded", handle_degraded)
 
     builder.add_edge(START, "fetch_pr")
-    builder.add_conditional_edges("fetch_pr", route_after_fetch, {
-        "continue": "analyze_diff",
-        "skip": END,
-    })
-    builder.add_conditional_edges("analyze_diff", route_after_analysis, {
-        "continue": "build_rag_index",
-        "skip": END,
-    })
+    builder.add_conditional_edges(
+        "fetch_pr",
+        route_after_fetch,
+        {
+            "continue": "analyze_diff",
+            "skip": END,
+        },
+    )
+    builder.add_conditional_edges(
+        "analyze_diff",
+        route_after_analysis,
+        {
+            "continue": "build_rag_index",
+            "skip": END,
+        },
+    )
     builder.add_edge("build_rag_index", "review_chunk")
-    builder.add_conditional_edges("review_chunk", route_after_review, {
-        "validate": "validate_findings",
-        "degraded": "handle_degraded",
-    })
-    builder.add_conditional_edges("validate_findings", route_after_validate, {
-        "advance": "advance_chunk",
-        "merge": "merge_results",
-    })
+    builder.add_conditional_edges(
+        "review_chunk",
+        route_after_review,
+        {
+            "validate": "validate_findings",
+            "degraded": "handle_degraded",
+        },
+    )
+    builder.add_conditional_edges(
+        "validate_findings",
+        route_after_validate,
+        {
+            "advance": "advance_chunk",
+            "merge": "merge_results",
+        },
+    )
     builder.add_edge("advance_chunk", "review_chunk")
-    builder.add_conditional_edges("merge_results", route_after_merge, {
-        "publish": "post_results",
-        "degraded": "handle_degraded",
-    })
+    builder.add_conditional_edges(
+        "merge_results",
+        route_after_merge,
+        {
+            "publish": "post_results",
+            "degraded": "handle_degraded",
+        },
+    )
     builder.add_edge("post_results", END)
     builder.add_edge("handle_degraded", END)
 

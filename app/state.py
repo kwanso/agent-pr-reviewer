@@ -4,7 +4,6 @@ import operator
 from typing import Annotated, TypedDict
 
 
-
 class PRReviewState(TypedDict, total=False):
     """Full state flowing through the LangGraph review pipeline.
 

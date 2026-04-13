@@ -1,4 +1,5 @@
 """Nodes: analyze_diff (filter + chunk + risk-sort) and build_rag_index."""
+
 from __future__ import annotations
 
 import asyncio
@@ -86,7 +87,8 @@ async def build_rag_index(state: PRReviewState) -> dict:
         return {"filename": fname, "content": content} if content else None
 
     results = await asyncio.gather(
-        *(_fetch(f) for f in filenames), return_exceptions=True,
+        *(_fetch(f) for f in filenames),
+        return_exceptions=True,
     )
     file_contents = [r for r in results if isinstance(r, dict)]
 

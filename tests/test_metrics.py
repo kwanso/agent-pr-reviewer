@@ -1,4 +1,5 @@
 """Tests for app.utils.metrics — counter operations and summary computation."""
+
 from __future__ import annotations
 
 import pytest

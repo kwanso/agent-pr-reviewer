@@ -4,6 +4,7 @@ Supports both GitHub Apps (with installation tokens) and Personal Access Tokens 
 GitHub App auth is auto-generated per installation_id from webhook payload.
 Falls back to PAT if no app is configured.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -59,6 +60,7 @@ class GitHubAppTokenManager:
         try:
             # If path is relative, resolve it relative to the app directory
             import pathlib
+
             p = pathlib.Path(path)
             if not p.is_absolute():
                 # Get the directory where this file is located (app/)
@@ -81,11 +83,14 @@ class GitHubAppTokenManager:
         return pyjwt.encode(payload, self.private_key, algorithm="RS256")
 
     async def get_installation_token(
-        self, installation_id: int, http: httpx.AsyncClient,
+        self,
+        installation_id: int,
+        http: httpx.AsyncClient,
     ) -> str:
         """Get or refresh installation access token. Caches with 5-min buffer."""
         cached_token, expires_at = self._token_cache.get(
-            installation_id, ("", 0),
+            installation_id,
+            ("", 0),
         )
         now = time.time()
         # Refresh if within 5 min of expiry
@@ -105,6 +110,7 @@ class GitHubAppTokenManager:
             expires_str = data.get("expires_at", "")
             try:
                 import datetime
+
                 expires_dt = datetime.datetime.fromisoformat(
                     expires_str.replace("Z", "+00:00"),
                 )
@@ -147,7 +153,11 @@ class GitHubClient:
         )
 
     async def _request(
-        self, method: str, path: str, retries: int = 3, **kwargs: Any,
+        self,
+        method: str,
+        path: str,
+        retries: int = 3,
+        **kwargs: Any,
     ) -> Any:
         last_exc: Exception | None = None
         for attempt in range(1, retries + 1):
@@ -158,7 +168,9 @@ class GitHubClient:
             except httpx.HTTPStatusError as exc:
                 status = exc.response.status_code
                 last_exc = GitHubError(
-                    str(exc), status=status, reason=_classify_status(status),
+                    str(exc),
+                    status=status,
+                    reason=_classify_status(status),
                 )
                 if (status == 429 or status >= 500) and attempt < retries:
                     await asyncio.sleep(0.5 * attempt)
@@ -196,8 +208,7 @@ class GitHubClient:
                 params={"per_page": 100, "page": page},
             )
             all_files.extend(
-                {"filename": f["filename"], "patch": f.get("patch", "")}
-                for f in batch
+                {"filename": f["filename"], "patch": f.get("patch", "")} for f in batch
             )
             if len(batch) < 100:
                 break
@@ -207,11 +218,16 @@ class GitHubClient:
     # ── File content ─────────────────────────────────────────────────
 
     async def get_file_content(
-        self, owner: str, repo: str, path: str, ref: str,
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        ref: str,
     ) -> str | None:
         try:
             data = await self._request(
-                "GET", f"/repos/{owner}/{repo}/contents/{path}",
+                "GET",
+                f"/repos/{owner}/{repo}/contents/{path}",
                 params={"ref": ref},
             )
             if data.get("encoding") == "base64" and data.get("content"):
@@ -222,7 +238,10 @@ class GitHubClient:
             return None
 
     async def get_repo_config(
-        self, owner: str, repo: str, ref: str,
+        self,
+        owner: str,
+        repo: str,
+        ref: str,
         path: str = ".pr-review.yml",
     ) -> dict | None:
         content = await self.get_file_content(owner, repo, path, ref)
@@ -237,7 +256,11 @@ class GitHubClient:
     # ── Posting ──────────────────────────────────────────────────────
 
     async def post_comment(
-        self, owner: str, repo: str, pr_number: int, body: str,
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        body: str,
     ) -> None:
         if not body.strip():
             return
@@ -315,13 +338,17 @@ async def get_github_client(installation_id: int | None = None) -> GitHubClient:
         if installation_id not in _app_clients:
             # Need to get the installation token
             async with httpx.AsyncClient(
-                base_url=GitHubClient.BASE, timeout=20.0,
+                base_url=GitHubClient.BASE,
+                timeout=20.0,
             ) as http:
                 token = await _app_auth.get_installation_token(
-                    installation_id, http,
+                    installation_id,
+                    http,
                 )
             _app_clients[installation_id] = GitHubClient(token)
-            log.info("github_client_created", mode="app", installation_id=installation_id)
+            log.info(
+                "github_client_created", mode="app", installation_id=installation_id
+            )
 
         return _app_clients[installation_id]
 

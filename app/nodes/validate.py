@@ -1,4 +1,5 @@
 """Node: validate_findings — false-positive pass on the latest chunk review."""
+
 from __future__ import annotations
 
 import json
@@ -12,6 +13,7 @@ from app.models import REVIEW_BUCKET_FIELDS, ReviewFinding, ReviewOutput
 from app.state import PRReviewState
 
 log = structlog.get_logger()
+
 
 def _review_from_chunk_dict(chunk: dict) -> ReviewOutput:
     fields = set(ReviewOutput.model_fields)
@@ -32,16 +34,18 @@ def _flatten_for_validation(review: ReviewOutput) -> list[dict]:
                     suggested_fix="See issue text.",
                     confidence=0.7,
                 )
-            pending.append({
-                "bucket": bucket,
-                "issue": rf.issue,
-                "why_it_matters": rf.why_it_matters,
-                "suggested_fix": rf.suggested_fix,
-                "evidence": rf.evidence,
-                "file_path": rf.file_path,
-                "line": rf.line,
-                "confidence": rf.confidence,
-            })
+            pending.append(
+                {
+                    "bucket": bucket,
+                    "issue": rf.issue,
+                    "why_it_matters": rf.why_it_matters,
+                    "suggested_fix": rf.suggested_fix,
+                    "evidence": rf.evidence,
+                    "file_path": rf.file_path,
+                    "line": rf.line,
+                    "confidence": rf.confidence,
+                }
+            )
     return pending
 
 
@@ -130,18 +134,20 @@ Output a single JSON array only, no markdown."""
     )
 
     try:
-        response = await llm.ainvoke([
-            {
-                "role": "system",
-                "content": (
-                    "You are a strict code-review auditor. "
-                    "Reject findings that are not clearly supported by the supplied diff excerpt, "
-                    "that reference files outside ALLOWED_FILE_PATHS (when that list is non-empty), "
-                    "or that restate generic advice. Prefer precision over politeness."
-                ),
-            },
-            {"role": "user", "content": validator_user},
-        ])
+        response = await llm.ainvoke(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a strict code-review auditor. "
+                        "Reject findings that are not clearly supported by the supplied diff excerpt, "
+                        "that reference files outside ALLOWED_FILE_PATHS (when that list is non-empty), "
+                        "or that restate generic advice. Prefer precision over politeness."
+                    ),
+                },
+                {"role": "user", "content": validator_user},
+            ]
+        )
 
         validated_pending = [dict(p) for p in pending]
         text = response.content
@@ -155,7 +161,9 @@ Output a single JSON array only, no markdown."""
                     if not adj.get("keep", True):
                         validated_pending[i]["confidence"] = 0.0
                     else:
-                        c = float(adj.get("confidence", validated_pending[i]["confidence"]))
+                        c = float(
+                            adj.get("confidence", validated_pending[i]["confidence"])
+                        )
                         validated_pending[i]["confidence"] = max(0.0, min(1.0, c))
 
         rebuilt = _rebuild_review(validated_pending)

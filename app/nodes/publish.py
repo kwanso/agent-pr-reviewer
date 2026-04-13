@@ -1,7 +1,9 @@
 """Nodes: merge_results, post_results, handle_degraded."""
+
 from __future__ import annotations
 
 import re
+
 import structlog
 
 from app.models import InlineComment, ReviewOutput, merge_reviews
@@ -18,9 +20,7 @@ async def merge_results(state: PRReviewState) -> dict:
     chunk_reviews = state.get("chunk_reviews", [])
     filtered = state.get("filtered_reviews", [])
     raw_reviews = (
-        filtered
-        if filtered and len(filtered) == len(chunk_reviews)
-        else chunk_reviews
+        filtered if filtered and len(filtered) == len(chunk_reviews) else chunk_reviews
     )
     if not raw_reviews:
         return {"final_summary": "", "inline_comments": []}
@@ -95,7 +95,11 @@ async def post_results(state: PRReviewState) -> dict:
     if inline and state.get("head_sha"):
         try:
             await github.post_inline_comments(
-                owner, repo, pr_number, state["head_sha"], inline,
+                owner,
+                repo,
+                pr_number,
+                state["head_sha"],
+                inline,
             )
             inline_posted = True
         except Exception as exc:
@@ -144,13 +148,13 @@ async def handle_degraded(state: PRReviewState) -> dict:
 
 def _convert_markdown_to_slack(text: str) -> str:
     """Convert markdown to Slack-friendly format with better readability."""
-    lines = text.split('\n')
+    lines = text.split("\n")
     converted_lines = []
     in_code_block = False
 
     for line in lines:
         # Skip converting content inside code blocks
-        if line.strip().startswith('```'):
+        if line.strip().startswith("```"):
             in_code_block = not in_code_block
             converted_lines.append(line)
             continue
@@ -160,42 +164,44 @@ def _convert_markdown_to_slack(text: str) -> str:
             continue
 
         # Convert markdown headers (## Header → *Header*)
-        if line.startswith('### '):
-            line = '*' + line[4:].strip() + '*'
-        elif line.startswith('## '):
-            line = '*' + line[3:].strip() + '*'
-        elif line.startswith('# '):
-            line = '*' + line[2:].strip() + '*'
+        if line.startswith("### "):
+            line = "*" + line[4:].strip() + "*"
+        elif line.startswith("## "):
+            line = "*" + line[3:].strip() + "*"
+        elif line.startswith("# "):
+            line = "*" + line[2:].strip() + "*"
 
         # Convert **bold** to *bold*
-        line = line.replace('**', '*')
+        line = line.replace("**", "*")
 
         # Convert markdown bullet points with better formatting
         # Handle nested bullets (-, --, etc.)
-        if line.startswith('- '):
-            indent = len(line) - len(line.lstrip('-').lstrip(' '))
-            spaces = '  ' * (indent // 2) if indent > 0 else ''
-            line = spaces + '• ' + line.lstrip('- ').strip()
+        if line.startswith("- "):
+            indent = len(line) - len(line.lstrip("-").lstrip(" "))
+            spaces = "  " * (indent // 2) if indent > 0 else ""
+            line = spaces + "• " + line.lstrip("- ").strip()
 
         converted_lines.append(line)
 
     # Convert markdown links [text](url) to Slack format <url|text>
-    result = '\n'.join(converted_lines)
+    result = "\n".join(converted_lines)
     result = re.sub(r"\[(.+?)\]\((.+?)\)", r"<\2|\1>", result)
 
     return result
 
 
 def _build_fallback_note(error: str) -> str:
-    return "\n".join([
-        "## Automated Review Status",
-        "",
-        "The review pipeline ran, but could not generate a complete code review.",
-        "",
-        f"Reason: {error[:220]}",
-        "",
-        "Please retry after resolving the issue, or set `LLM_MOCK_MODE=true` for testing.",
-    ])
+    return "\n".join(
+        [
+            "## Automated Review Status",
+            "",
+            "The review pipeline ran, but could not generate a complete code review.",
+            "",
+            f"Reason: {error[:220]}",
+            "",
+            "Please retry after resolving the issue, or set `LLM_MOCK_MODE=true` for testing.",
+        ]
+    )
 
 
 def _build_slack_message(
@@ -212,43 +218,62 @@ def _build_slack_message(
 
     # Extract category sections and count issues
     categories_data = {
-        '🔴 Critical': ('critical_issues', 0),
-        '🟠 Reliability': ('reliability_issues', 0),
-        '🟣 Database': ('database_issues', 0),
-        '🔵 Resources': ('resource_management', 0),
-        '🟡 Quality': ('code_quality', 0),
-        '🟤 Input': ('input_validation', 0),
-        '⚫ Performance': ('performance_scalability', 0),
-        '🔷 Architecture': ('architecture_issues', 0),
-        '⚪ Production': ('production_readiness', 0),
+        "🔴 Critical": ("critical_issues", 0),
+        "🟠 Reliability": ("reliability_issues", 0),
+        "🟣 Database": ("database_issues", 0),
+        "🔵 Resources": ("resource_management", 0),
+        "🟡 Quality": ("code_quality", 0),
+        "🟤 Input": ("input_validation", 0),
+        "⚫ Performance": ("performance_scalability", 0),
+        "🔷 Architecture": ("architecture_issues", 0),
+        "⚪ Production": ("production_readiness", 0),
     }
 
     # Count issues by searching for "**1." pattern in sections
     issue_counts = {}
-    lines = slack_summary.split('\n')
+    lines = slack_summary.split("\n")
 
     for i, line in enumerate(lines):
         for label, (key, _) in categories_data.items():
-            if label in line or any(keyword in line for keyword in ['Critical', 'Reliability', 'Database', 'Resource', 'Quality', 'Input', 'Performance', 'Architecture', 'Production']):
+            if label in line or any(
+                keyword in line
+                for keyword in [
+                    "Critical",
+                    "Reliability",
+                    "Database",
+                    "Resource",
+                    "Quality",
+                    "Input",
+                    "Performance",
+                    "Architecture",
+                    "Production",
+                ]
+            ):
                 # Count consecutive issues in this section
                 count = 0
                 j = i + 1
                 while j < len(lines):
-                    if lines[j].startswith('**') and '.' in lines[j]:
+                    if lines[j].startswith("**") and "." in lines[j]:
                         count += 1
-                    elif lines[j].startswith('## ') or (lines[j].strip() == '' and j + 1 < len(lines) and lines[j + 1].startswith('## ')):
+                    elif lines[j].startswith("## ") or (
+                        lines[j].strip() == ""
+                        and j + 1 < len(lines)
+                        and lines[j + 1].startswith("## ")
+                    ):
                         break
                     j += 1
                 issue_counts[label] = count
                 break
 
     # Build concise summary
-    summary_lines = slack_summary.split('\n')
+    summary_lines = slack_summary.split("\n")
     concise_findings = []
 
     for label, count in issue_counts.items():
         if count > 0:
-            concise_findings.append(f"*{label}* — {count} issue{'s' if count > 1 else ''}")
+            concise_findings.append(
+                f"*{label}* — {count} issue{'s' if count > 1 else ''}"
+            )
 
     message_parts = [
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
@@ -263,9 +288,11 @@ def _build_slack_message(
         message_parts.extend(concise_findings)
         message_parts.append("")
 
-    message_parts.extend([
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-        f"<{url}|📖 View Full Review on GitHub>",
-    ])
+    message_parts.extend(
+        [
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            f"<{url}|📖 View Full Review on GitHub>",
+        ]
+    )
 
     return "\n".join(message_parts)

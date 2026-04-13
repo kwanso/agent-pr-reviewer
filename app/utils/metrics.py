@@ -3,11 +3,11 @@
 Ported from the JS agent's ``metrics.js``.  Thread-safe via a lock so
 ``increment`` can be called from async background tasks safely.
 """
+
 from __future__ import annotations
 
 import threading
 from typing import Any
-
 
 _lock = threading.Lock()
 _counters: dict[str, int] = {}
@@ -61,7 +61,7 @@ def summary() -> dict[str, Any]:
     prefix = "reviews_fallback_by_reason."
     for key, val in snap.items():
         if key.startswith(prefix):
-            by_reason[key[len(prefix):]] = val
+            by_reason[key[len(prefix) :]] = val
 
     return {
         "review_outcomes": {

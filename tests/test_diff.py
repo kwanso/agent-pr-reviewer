@@ -1,15 +1,10 @@
 """Tests for app.utils.diff — file filtering, patch compaction, chunking, risk scoring."""
+
 from __future__ import annotations
 
 import pytest
 
-from app.utils.diff import (
-    analyze_diff,
-    compact_patch,
-    score_risk,
-    should_ignore_file,
-)
-
+from app.utils.diff import analyze_diff, compact_patch, score_risk, should_ignore_file
 
 # ── should_ignore_file ───────────────────────────────────────────────
 
@@ -61,17 +56,19 @@ class TestShouldIgnoreFile:
 
 class TestCompactPatch:
     def test_keeps_changes_with_context(self):
-        patch = "\n".join([
-            "@@ -1,7 +1,7 @@",
-            " line1",
-            " line2",
-            " line3",
-            "-old",
-            "+new",
-            " line5",
-            " line6",
-            " line7",
-        ])
+        patch = "\n".join(
+            [
+                "@@ -1,7 +1,7 @@",
+                " line1",
+                " line2",
+                " line3",
+                "-old",
+                "+new",
+                " line5",
+                " line6",
+                " line7",
+            ]
+        )
         result = compact_patch(patch, keep=1)
         assert "+new" in result
         assert "-old" in result
@@ -84,14 +81,16 @@ class TestCompactPatch:
         assert compact_patch("") == ""
 
     def test_zero_context(self):
-        patch = "\n".join([
-            "@@ -1,5 +1,5 @@",
-            " ctx1",
-            "-old",
-            "+new",
-            " ctx2",
-            " ctx3",
-        ])
+        patch = "\n".join(
+            [
+                "@@ -1,5 +1,5 @@",
+                " ctx1",
+                "-old",
+                "+new",
+                " ctx2",
+                " ctx3",
+            ]
+        )
         result = compact_patch(patch, keep=0)
         assert "+new" in result
         assert "-old" in result

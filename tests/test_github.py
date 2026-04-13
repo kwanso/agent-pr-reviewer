@@ -1,12 +1,12 @@
 """Tests for app.services.github — inline comment validation and request logic."""
+
 from __future__ import annotations
 
-import pytest
 import httpx
+import pytest
 import respx
 
 from app.services.github import GitHubClient, GitHubError, _classify_status
-
 
 # ── Status classification ────────────────────────────────────────────
 
@@ -68,10 +68,10 @@ class TestInlineCommentNormalisation:
         ).respond(200, json={})
 
         comments = [
-            {"file": "", "line": 10, "comment": "no file"},           # empty file
-            {"file": "a.py", "line": None, "comment": "no line"},      # no line
-            {"file": "b.py", "line": 5, "comment": ""},                # empty comment
-            {"file": "c.py", "line": 1, "comment": "valid"},           # valid
+            {"file": "", "line": 10, "comment": "no file"},  # empty file
+            {"file": "a.py", "line": None, "comment": "no line"},  # no line
+            {"file": "b.py", "line": 5, "comment": ""},  # empty comment
+            {"file": "c.py", "line": 1, "comment": "valid"},  # valid
         ]
         await client.post_inline_comments("owner", "repo", 1, "abc123", comments)
         assert route.called
@@ -95,6 +95,7 @@ class TestInlineCommentNormalisation:
         await client.post_inline_comments("owner", "repo", 1, "sha", comments)
         assert route.called
         import json
+
         body = json.loads(route.calls[0].request.content)
         assert len(body["comments"]) == 10
         await client.close()
@@ -169,11 +170,18 @@ class TestRetry:
         route.side_effect = [
             httpx.Response(500, json={"message": "Internal Server Error"}),
             httpx.Response(500, json={"message": "Internal Server Error"}),
-            httpx.Response(200, json={
-                "title": "Test", "body": "", "html_url": "",
-                "draft": False, "state": "open", "labels": [],
-                "changed_files": 1,
-            }),
+            httpx.Response(
+                200,
+                json={
+                    "title": "Test",
+                    "body": "",
+                    "html_url": "",
+                    "draft": False,
+                    "state": "open",
+                    "labels": [],
+                    "changed_files": 1,
+                },
+            ),
         ]
         result = await client.get_pr_details("owner", "repo", 1)
         assert result["title"] == "Test"

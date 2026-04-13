@@ -6,6 +6,7 @@ Relevant code is found by both meaning and exact keyword matches.
 The stores are not serializable, so they live in module-level dicts
 keyed by ``delivery_id``. After the review completes, ``cleanup()`` frees memory.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -79,6 +80,7 @@ async def build_index(
         bm25_store = None
         try:
             from langchain_community.retrievers import BM25Retriever
+
             bm25_store = BM25Retriever.from_documents(docs)
             _bm25_stores[delivery_id] = bm25_store
             log.info("bm25_index_built", delivery_id=delivery_id, chunks=len(docs))
@@ -114,7 +116,9 @@ async def build_index(
                 if not bm25_store:
                     return False
             else:
-                log.error("faiss_index_failed", delivery_id=delivery_id, error=error_str)
+                log.error(
+                    "faiss_index_failed", delivery_id=delivery_id, error=error_str
+                )
                 return False
 
         _metadata_stores[delivery_id] = metadata
@@ -136,9 +140,19 @@ async def build_index(
 def _infer_language(filename: str) -> str:
     """Infer programming language from file extension."""
     ext_map = {
-        ".py": "python", ".js": "js", ".ts": "ts", ".tsx": "ts",
-        ".jsx": "js", ".go": "go", ".rs": "rust", ".java": "java",
-        ".cpp": "cpp", ".c": "c", ".h": "c", ".rb": "ruby", ".php": "php",
+        ".py": "python",
+        ".js": "js",
+        ".ts": "ts",
+        ".tsx": "ts",
+        ".jsx": "js",
+        ".go": "go",
+        ".rs": "rust",
+        ".java": "java",
+        ".cpp": "cpp",
+        ".c": "c",
+        ".h": "c",
+        ".rb": "ruby",
+        ".php": "php",
     }
     for ext, lang in ext_map.items():
         if filename.endswith(ext):
@@ -166,7 +180,9 @@ def retrieve(delivery_id: str, query: str, k: int = 5) -> list[Any]:
     if not faiss_store and bm25_store:
         try:
             results = bm25_store.get_relevant_documents(query)
-            log.info("rag_retrieve_bm25_only", delivery_id=delivery_id, results=len(results))
+            log.info(
+                "rag_retrieve_bm25_only", delivery_id=delivery_id, results=len(results)
+            )
             return results[:k]
         except Exception as exc:
             log.warning("rag_retrieve_bm25_failed", error=str(exc))
@@ -205,7 +221,9 @@ def retrieve(delivery_id: str, query: str, k: int = 5) -> list[Any]:
         # Fallback to semantic only
         try:
             results = faiss_store.similarity_search(query, k=k)
-            log.info("rag_retrieve_faiss_only", delivery_id=delivery_id, results=len(results))
+            log.info(
+                "rag_retrieve_faiss_only", delivery_id=delivery_id, results=len(results)
+            )
             return results
         except Exception as e:
             log.error("rag_retrieve_all_failed", error=str(e))

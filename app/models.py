@@ -6,16 +6,18 @@ from typing import Any, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-_CLEAN_PHRASES = frozenset({
-    "no significant issues found",
-    "no issues found",
-    "no significant issues",
-    "lgtm",
-    "looks good",
-    "none identified",
-    "not applicable",
-    "n/a",
-})
+_CLEAN_PHRASES = frozenset(
+    {
+        "no significant issues found",
+        "no issues found",
+        "no significant issues",
+        "lgtm",
+        "looks good",
+        "none identified",
+        "not applicable",
+        "n/a",
+    }
+)
 
 # All list buckets on ReviewOutput (order = markdown section order after context).
 REVIEW_BUCKET_FIELDS: tuple[str, ...] = (
@@ -44,7 +46,9 @@ class InlineComment(BaseModel):
 
 
 _DEFAULT_WHY = "(Model omitted impact — infer from issue and evidence.)"
-_DEFAULT_FIX = "(Model omitted fix — address the issue with standard patterns for this codebase.)"
+_DEFAULT_FIX = (
+    "(Model omitted fix — address the issue with standard patterns for this codebase.)"
+)
 
 
 class ReviewFinding(BaseModel):
@@ -164,7 +168,9 @@ class ReviewOutput(BaseModel):
         ),
     )
     inline_comments: list[InlineComment] = Field(default_factory=list)
-    reasoning_trace: str = Field(default="", description="Optional internal notes; usually empty")
+    reasoning_trace: str = Field(
+        default="", description="Optional internal notes; usually empty"
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -211,8 +217,7 @@ class ReviewOutput(BaseModel):
         if not items:
             return True
         return all(
-            any(p in self._item_text_lower(x) for p in _CLEAN_PHRASES)
-            for x in items
+            any(p in self._item_text_lower(x) for p in _CLEAN_PHRASES) for x in items
         )
 
     def to_markdown(self) -> str:
@@ -235,7 +240,9 @@ class ReviewOutput(BaseModel):
             lines_.append("")
             return lines_
 
-        def section(title: str, subtitle: str, findings: list[ReviewFinding | str]) -> list[str]:
+        def section(
+            title: str, subtitle: str, findings: list[ReviewFinding | str]
+        ) -> list[str]:
             out: list[str] = [f"## {title}", ""]
             if subtitle:
                 out.append(f"*{subtitle}*")
@@ -255,7 +262,9 @@ class ReviewOutput(BaseModel):
                 n += 1
                 out.extend(fmt_finding(n, item))
             if n == 0:
-                out.append("*No issues identified in this category for the supplied change.*")
+                out.append(
+                    "*No issues identified in this category for the supplied change.*"
+                )
                 out.append("")
             return out
 
@@ -269,51 +278,69 @@ class ReviewOutput(BaseModel):
             )
         lines.append("")
 
-        lines.extend(section(
-            "🔴 Critical Issues (Must Fix)",
-            "Security breaches, data corruption/loss, production crashes.",
-            self.critical_issues,
-        ))
-        lines.extend(section(
-            "🟠 Reliability & Fault Tolerance Issues",
-            "Runtime failures, unhandled errors, missing graceful degradation.",
-            self.reliability_issues,
-        ))
-        lines.extend(section(
-            "🟣 Database & State Management Issues",
-            "Parameterized queries, transactions, rollback, connection lifecycle.",
-            self.database_issues,
-        ))
-        lines.extend(section(
-            "🔵 Resource Management Issues",
-            "Leaks under failure or load: files, DB, cursors, memory.",
-            self.resource_management,
-        ))
-        lines.extend(section(
-            "🟡 Code Quality & Maintainability",
-            "Pythonic style, typing, structure, duplication, readability.",
-            self.code_quality,
-        ))
-        lines.extend(section(
-            "🟤 Input Validation & Data Integrity",
-            "Types, formats, constraints — not only SQL/injection.",
-            self.input_validation_issues,
-        ))
-        lines.extend(section(
-            "⚫ Performance & Scalability Concerns",
-            "Growth and load: N+1, hot paths, wasteful work.",
-            self.performance_scalability,
-        ))
-        lines.extend(section(
-            "🔷 Architectural / Design Issues",
-            "Separation of concerns, coupling, testability, extensibility.",
-            self.architecture_issues,
-        ))
-        lines.extend(section(
-            "⚪ Missing Production Considerations",
-            "Logging, observability, testing, configuration — mandatory section.",
-            self.production_readiness,
-        ))
+        lines.extend(
+            section(
+                "🔴 Critical Issues (Must Fix)",
+                "Security breaches, data corruption/loss, production crashes.",
+                self.critical_issues,
+            )
+        )
+        lines.extend(
+            section(
+                "🟠 Reliability & Fault Tolerance Issues",
+                "Runtime failures, unhandled errors, missing graceful degradation.",
+                self.reliability_issues,
+            )
+        )
+        lines.extend(
+            section(
+                "🟣 Database & State Management Issues",
+                "Parameterized queries, transactions, rollback, connection lifecycle.",
+                self.database_issues,
+            )
+        )
+        lines.extend(
+            section(
+                "🔵 Resource Management Issues",
+                "Leaks under failure or load: files, DB, cursors, memory.",
+                self.resource_management,
+            )
+        )
+        lines.extend(
+            section(
+                "🟡 Code Quality & Maintainability",
+                "Pythonic style, typing, structure, duplication, readability.",
+                self.code_quality,
+            )
+        )
+        lines.extend(
+            section(
+                "🟤 Input Validation & Data Integrity",
+                "Types, formats, constraints — not only SQL/injection.",
+                self.input_validation_issues,
+            )
+        )
+        lines.extend(
+            section(
+                "⚫ Performance & Scalability Concerns",
+                "Growth and load: N+1, hot paths, wasteful work.",
+                self.performance_scalability,
+            )
+        )
+        lines.extend(
+            section(
+                "🔷 Architectural / Design Issues",
+                "Separation of concerns, coupling, testability, extensibility.",
+                self.architecture_issues,
+            )
+        )
+        lines.extend(
+            section(
+                "⚪ Missing Production Considerations",
+                "Logging, observability, testing, configuration — mandatory section.",
+                self.production_readiness,
+            )
+        )
 
         if self.inline_comments:
             lines.append("## Inline review notes")
@@ -333,7 +360,9 @@ def merge_reviews(reviews: list[ReviewOutput]) -> ReviewOutput:
 
     merged = ReviewOutput()
 
-    ctx_parts = [r.context_summary.strip() for r in reviews if r.context_summary.strip()]
+    ctx_parts = [
+        r.context_summary.strip() for r in reviews if r.context_summary.strip()
+    ]
     merged.context_summary = "\n\n---\n\n".join(ctx_parts) if ctx_parts else ""
 
     for r in reviews:
@@ -450,7 +479,11 @@ def parse_review_text(text: str) -> ReviewOutput:
         body = match.group(1).strip()
         # Strip italic subtitle lines under header
         body_lines = body.split("\n")
-        while body_lines and body_lines[0].strip().startswith("*") and body_lines[0].strip().endswith("*"):
+        while (
+            body_lines
+            and body_lines[0].strip().startswith("*")
+            and body_lines[0].strip().endswith("*")
+        ):
             body_lines = body_lines[1:]
         body = "\n".join(body_lines).strip()
         findings: list[ReviewFinding] = []
@@ -505,10 +538,14 @@ def parse_review_text(text: str) -> ReviewOutput:
         _extract_section(text, r"(?:🔴\s*)?Critical Issues(?:\s*\(Must Fix\))?"),
     )
     out.reliability_issues.extend(
-        _extract_section(text, r"(?:🟠\s*)?Reliability(?:\s*&\s*Fault Tolerance)?(?:\s*Issues)?"),
+        _extract_section(
+            text, r"(?:🟠\s*)?Reliability(?:\s*&\s*Fault Tolerance)?(?:\s*Issues)?"
+        ),
     )
     out.database_issues.extend(
-        _extract_section(text, r"(?:🟣\s*)?Database(?:\s*&\s*State Management)?(?:\s*Issues)?"),
+        _extract_section(
+            text, r"(?:🟣\s*)?Database(?:\s*&\s*State Management)?(?:\s*Issues)?"
+        ),
     )
     out.resource_management.extend(
         _extract_section(text, r"(?:🔵\s*)?Resource Management(?:\s*Issues)?"),
@@ -517,13 +554,19 @@ def parse_review_text(text: str) -> ReviewOutput:
         _extract_section(text, r"(?:🟡\s*)?Code Quality(?:\s*&\s*Maintainability)?"),
     )
     out.input_validation_issues.extend(
-        _extract_section(text, r"(?:🟤\s*)?Input Validation(?:\s*&\s*Data Integrity)?(?:\s*Issues)?"),
+        _extract_section(
+            text, r"(?:🟤\s*)?Input Validation(?:\s*&\s*Data Integrity)?(?:\s*Issues)?"
+        ),
     )
     out.performance_scalability.extend(
-        _extract_section(text, r"(?:⚫\s*)?Performance(?:\s*&\s*Scalability)?(?:\s*Concerns)?"),
+        _extract_section(
+            text, r"(?:⚫\s*)?Performance(?:\s*&\s*Scalability)?(?:\s*Concerns)?"
+        ),
     )
     out.architecture_issues.extend(
-        _extract_section(text, r"(?:🔷\s*)?Architectural(?:\s*/\s*Design)?(?:\s*Issues)?"),
+        _extract_section(
+            text, r"(?:🔷\s*)?Architectural(?:\s*/\s*Design)?(?:\s*Issues)?"
+        ),
     )
     out.production_readiness.extend(
         _extract_section(text, r"(?:⚪\s*)?Missing Production Considerations?"),
@@ -531,10 +574,14 @@ def parse_review_text(text: str) -> ReviewOutput:
 
     # Legacy 5-bucket markdown (older agent)
     if not out.reliability_issues:
-        out.reliability_issues.extend(_extract_section(text, r"(?:🟠\s*)?High Priority Improvements?"))
+        out.reliability_issues.extend(
+            _extract_section(text, r"(?:🟠\s*)?High Priority Improvements?")
+        )
     if not out.architecture_issues:
         out.architecture_issues.extend(
-            _extract_section(text, r"(?:🔵\s*)?Architectural(?:\s*/\s*Design)?\s*Feedback"),
+            _extract_section(
+                text, r"(?:🔵\s*)?Architectural(?:\s*/\s*Design)?\s*Feedback"
+            ),
         )
 
     # Legacy three-bucket

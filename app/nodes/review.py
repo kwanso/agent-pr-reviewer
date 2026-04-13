@@ -1,4 +1,5 @@
 """Nodes: review_chunk (LLM call with structured output) and advance_chunk."""
+
 from __future__ import annotations
 
 import asyncio
@@ -16,7 +17,9 @@ from app.utils.prompts import build_review_messages
 log = structlog.get_logger()
 
 # ── Rate-limit helpers ────────────────────────────────────────────────
-_RETRY_DELAY_RE = re.compile(r"retry\s*(?:in|Delay['\"]?\s*:\s*['\"]?)\s*([\d.]+)", re.I)
+_RETRY_DELAY_RE = re.compile(
+    r"retry\s*(?:in|Delay['\"]?\s*:\s*['\"]?)\s*([\d.]+)", re.I
+)
 _MAX_RETRIES = 4
 _DEFAULT_BACKOFF_S = 30.0
 
@@ -63,8 +66,10 @@ async def review_chunk(state: PRReviewState) -> dict:
     plan = plans[idx]
     log.info(
         "reviewing_chunk",
-        index=idx, total=len(plans),
-        risk=plan["risk_score"], mode=plan["review_mode"],
+        index=idx,
+        total=len(plans),
+        risk=plan["risk_score"],
+        mode=plan["review_mode"],
     )
 
     # Skip low-risk chunks when quota is exhausted.
@@ -76,7 +81,9 @@ async def review_chunk(state: PRReviewState) -> dict:
     rag_context = ""
     if state.get("rag_index_built"):
         docs = rag.retrieve(
-            state.get("delivery_id", ""), plan["chunk_text"], k=settings.rag_top_k,
+            state.get("delivery_id", ""),
+            plan["chunk_text"],
+            k=settings.rag_top_k,
         )
         if docs:
             rag_context = "\n\n".join(doc.page_content for doc in docs)
@@ -103,7 +110,7 @@ async def review_chunk(state: PRReviewState) -> dict:
         google_api_key=settings.llm_api_key,
         temperature=settings.llm_temperature,
         max_output_tokens=settings.llm_max_output_tokens,
-        max_retries=0,          # we handle retries ourselves
+        max_retries=0,  # we handle retries ourselves
         timeout=settings.llm_timeout_s,
     )
 
@@ -117,7 +124,9 @@ async def review_chunk(state: PRReviewState) -> dict:
                 review = result["parsed"]
             else:
                 raw_text = result["raw"].content if result.get("raw") else ""
-                log.warning("structured_output_fallback", error=str(result.get("parsing_error")))
+                log.warning(
+                    "structured_output_fallback", error=str(result.get("parsing_error"))
+                )
                 review = parse_review_json(raw_text) or parse_review_text(raw_text)
                 if review.is_clean() and raw_text.strip():
                     log.warning(
@@ -133,7 +142,8 @@ async def review_chunk(state: PRReviewState) -> dict:
                 delay = _parse_retry_delay(exc) + 2  # +2s safety margin
                 log.warning(
                     "rate_limited_retrying",
-                    index=idx, attempt=attempt + 1,
+                    index=idx,
+                    attempt=attempt + 1,
                     retry_in_s=round(delay, 1),
                 )
                 await asyncio.sleep(delay)
@@ -163,7 +173,10 @@ async def review_chunk(state: PRReviewState) -> dict:
 
 
 def _success(
-    review: ReviewOutput, idx: int, plans: list[dict], settings: object,
+    review: ReviewOutput,
+    idx: int,
+    plans: list[dict],
+    settings: object,
 ) -> dict:
     review_dict = review.model_dump()
     review_dict["chunk_index"] = idx

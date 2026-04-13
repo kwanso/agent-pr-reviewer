@@ -7,6 +7,7 @@ This script checks:
 3. Configuration loading
 4. Optional dependencies (for development)
 """
+
 from __future__ import annotations
 
 import sys
@@ -58,12 +59,16 @@ def check_config() -> bool:
 
     try:
         from app.config import get_settings
+
         settings = get_settings()
 
         # Check key settings
         checks = [
             ("Port configured", settings.port > 0),
-            ("Review profile valid", settings.review_profile in ["cost_safe", "balanced", "quality_heavy"]),
+            (
+                "Review profile valid",
+                settings.review_profile in ["cost_safe", "balanced", "quality_heavy"],
+            ),
             ("Python requirements met", sys.version_info >= (3, 11)),
         ]
 
@@ -95,7 +100,9 @@ def check_optional_deps() -> None:
             import_module(pkg)
             print(f"   ✅ {pkg} - {desc}")
         except ImportError:
-            print(f"   ⚠️  {pkg} - {desc} (optional, install with 'pip install -e .[dev]')")
+            print(
+                f"   ⚠️  {pkg} - {desc} (optional, install with 'pip install -e .[dev]')"
+            )
 
 
 def main() -> int:
@@ -133,7 +140,9 @@ def main() -> int:
         print("\n🎉 Setup validation passed! You can now:")
         print("   1. Run tests: pytest tests/")
         print("   2. Run in mock mode: LLM_MOCK_MODE=true python -m app.server")
-        print("   3. Setup GitHub App: https://github.com/kwanso-khalid/kwanso-agent-pr/blob/main/docs/SETUP.md")
+        print(
+            "   3. Setup GitHub App: https://github.com/kwanso-khalid/kwanso-agent-pr/blob/main/docs/SETUP.md"
+        )
         return 0
     else:
         print("\n⚠️  Some checks failed. Please fix the issues above.")

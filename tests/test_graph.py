@@ -1,4 +1,5 @@
 """Tests for app.graph — routing functions and graph structure."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,7 +12,6 @@ from app.graph import (
     route_after_review,
     route_after_validate,
 )
-
 
 # ── route_after_fetch ────────────────────────────────────────────────
 

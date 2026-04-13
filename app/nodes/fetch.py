@@ -1,4 +1,5 @@
 """Node: fetch PR details, check guards, load repo config, fetch files."""
+
 from __future__ import annotations
 
 import structlog
@@ -20,9 +21,13 @@ async def fetch_pr(state: PRReviewState) -> dict:
     pr = await github.get_pr_details(owner, repo, pr_number)
     log.info(
         "pr_fetched",
-        owner=owner, repo=repo, pr=pr_number,
-        state=pr["state"], draft=pr["draft"],
-        labels=pr["labels"], changed_files=pr["changed_files"],
+        owner=owner,
+        repo=repo,
+        pr=pr_number,
+        state=pr["state"],
+        draft=pr["draft"],
+        labels=pr["labels"],
+        changed_files=pr["changed_files"],
     )
 
     # ── Guards ────────────────────────────────────────────────────
@@ -35,8 +40,12 @@ async def fetch_pr(state: PRReviewState) -> dict:
         return {"skipped": True, "skip_reason": "no_ai_review_label"}
 
     if pr["changed_files"] > settings.max_files:
-        log.warning("pr_skipped", reason="max_files_exceeded",
-                    changed_files=pr["changed_files"], max_files=settings.max_files)
+        log.warning(
+            "pr_skipped",
+            reason="max_files_exceeded",
+            changed_files=pr["changed_files"],
+            max_files=settings.max_files,
+        )
         return {"skipped": True, "skip_reason": "max_files_exceeded"}
 
     # ── Repo config (.pr-review.yml) ─────────────────────────────

@@ -1,4 +1,5 @@
 """Tests for app.server — webhook handling and signature verification."""
+
 from __future__ import annotations
 
 import hashlib
@@ -34,9 +35,14 @@ class TestVerifySignature:
     def test_valid_signature(self):
         secret = "test-secret"
         payload = b'{"action": "opened"}'
-        sig = "sha256=" + hmac.new(
-            secret.encode(), payload, hashlib.sha256,
-        ).hexdigest()
+        sig = (
+            "sha256="
+            + hmac.new(
+                secret.encode(),
+                payload,
+                hashlib.sha256,
+            ).hexdigest()
+        )
         assert _verify_signature(payload, sig, secret) is True
 
     def test_invalid_signature(self):

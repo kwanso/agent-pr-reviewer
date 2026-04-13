@@ -1,4 +1,5 @@
 """Tests for app.models — ReviewOutput, merge_reviews, parse_review_text."""
+
 from __future__ import annotations
 
 import json
@@ -13,7 +14,6 @@ from app.models import (
     parse_review_json,
     parse_review_text,
 )
-
 
 # ── ReviewOutput.is_clean ────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ class TestToMarkdown:
                     issue="auth.py:10 - SQL injection risk",
                     why_it_matters="Attacker-controlled input reaches query string.",
                     suggested_fix="Use bound parameters.",
-                    evidence="+ query = f\"SELECT ... {x}\"",
+                    evidence='+ query = f"SELECT ... {x}"',
                     file_path="auth.py",
                     line=10,
                     confidence=0.9,
@@ -107,24 +107,30 @@ class TestToMarkdown:
     def test_markdown_sections_ordered(self):
         r = ReviewOutput(
             context_summary="ctx",
-            critical_issues=[ReviewFinding(
-                issue="issue1",
-                why_it_matters="a",
-                suggested_fix="b",
-                confidence=0.9,
-            )],
-            reliability_issues=[ReviewFinding(
-                issue="improve1",
-                why_it_matters="a",
-                suggested_fix="b",
-                confidence=0.9,
-            )],
-            code_quality=[ReviewFinding(
-                issue="suggest1",
-                why_it_matters="a",
-                suggested_fix="b",
-                confidence=0.9,
-            )],
+            critical_issues=[
+                ReviewFinding(
+                    issue="issue1",
+                    why_it_matters="a",
+                    suggested_fix="b",
+                    confidence=0.9,
+                )
+            ],
+            reliability_issues=[
+                ReviewFinding(
+                    issue="improve1",
+                    why_it_matters="a",
+                    suggested_fix="b",
+                    confidence=0.9,
+                )
+            ],
+            code_quality=[
+                ReviewFinding(
+                    issue="suggest1",
+                    why_it_matters="a",
+                    suggested_fix="b",
+                    confidence=0.9,
+                )
+            ],
         )
         md = r.to_markdown()
         ctx = md.index("🧠 Context")
@@ -148,15 +154,30 @@ class TestMergeReviews:
     def test_merge_single_review(self):
         r = ReviewOutput(
             context_summary="A",
-            critical_issues=[ReviewFinding(
-                issue="issue1", why_it_matters="x", suggested_fix="y", confidence=0.9,
-            )],
-            reliability_issues=[ReviewFinding(
-                issue="imp1", why_it_matters="x", suggested_fix="y", confidence=0.9,
-            )],
-            code_quality=[ReviewFinding(
-                issue="sug1", why_it_matters="x", suggested_fix="y", confidence=0.9,
-            )],
+            critical_issues=[
+                ReviewFinding(
+                    issue="issue1",
+                    why_it_matters="x",
+                    suggested_fix="y",
+                    confidence=0.9,
+                )
+            ],
+            reliability_issues=[
+                ReviewFinding(
+                    issue="imp1",
+                    why_it_matters="x",
+                    suggested_fix="y",
+                    confidence=0.9,
+                )
+            ],
+            code_quality=[
+                ReviewFinding(
+                    issue="sug1",
+                    why_it_matters="x",
+                    suggested_fix="y",
+                    confidence=0.9,
+                )
+            ],
             inline_comments=[InlineComment(file="a.py", line=1, comment="fix")],
         )
         merged = merge_reviews([r])
@@ -179,10 +200,12 @@ class TestMergeReviews:
         assert sorted(f.issue for f in merged.reliability_issues) == ["imp", "imp2"]
 
     def test_merge_context_summaries(self):
-        m = merge_reviews([
-            ReviewOutput(context_summary="Chunk A"),
-            ReviewOutput(context_summary="Chunk B"),
-        ])
+        m = merge_reviews(
+            [
+                ReviewOutput(context_summary="Chunk A"),
+                ReviewOutput(context_summary="Chunk B"),
+            ]
+        )
         assert "Chunk A" in m.context_summary
         assert "Chunk B" in m.context_summary
         assert "---" in m.context_summary
@@ -207,12 +230,22 @@ class TestMergeReviews:
     def test_merge_multiple_reviews(self):
         reviews = [
             ReviewOutput(
-                critical_issues=[ReviewFinding(
-                    issue=f"crit{i}", why_it_matters="a", suggested_fix="b", confidence=0.9,
-                )],
-                reliability_issues=[ReviewFinding(
-                    issue=f"imp{i}", why_it_matters="a", suggested_fix="b", confidence=0.9,
-                )],
+                critical_issues=[
+                    ReviewFinding(
+                        issue=f"crit{i}",
+                        why_it_matters="a",
+                        suggested_fix="b",
+                        confidence=0.9,
+                    )
+                ],
+                reliability_issues=[
+                    ReviewFinding(
+                        issue=f"imp{i}",
+                        why_it_matters="a",
+                        suggested_fix="b",
+                        confidence=0.9,
+                    )
+                ],
             )
             for i in range(3)
         ]
@@ -300,14 +333,16 @@ class TestParseReviewText:
 
 class TestParseReviewJson:
     def test_partial_finding_gets_defaults(self):
-        raw = json.dumps({
-            "critical_issues": [
-                {"issue": "SQLi", "evidence": '+ query = f"SELECT {x}"'},
-            ],
-            "high_priority_improvements": [
-                {"issue": "Leak", "why_it_matters": "fd leak"},
-            ],
-        })
+        raw = json.dumps(
+            {
+                "critical_issues": [
+                    {"issue": "SQLi", "evidence": '+ query = f"SELECT {x}"'},
+                ],
+                "high_priority_improvements": [
+                    {"issue": "Leak", "why_it_matters": "fd leak"},
+                ],
+            }
+        )
         r = parse_review_json(raw)
         assert r is not None
         assert len(r.critical_issues) == 1

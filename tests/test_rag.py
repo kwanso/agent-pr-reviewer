@@ -1,10 +1,10 @@
 """Tests for app.services.rag — index building, retrieval, and cleanup."""
+
 from __future__ import annotations
 
 import pytest
 
 from app.services.rag import _stores, build_index, cleanup, retrieve
-
 
 # ── Cleanup ──────────────────────────────────────────────────────────
 

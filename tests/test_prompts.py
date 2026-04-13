@@ -1,4 +1,5 @@
 """Tests for app.utils.prompts — prompt building and message structure."""
+
 from __future__ import annotations
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -8,7 +9,6 @@ from app.utils.prompts import (
     build_system_prompt,
     build_user_prompt,
 )
-
 
 # ── build_system_prompt ──────────────────────────────────────────────
 
@@ -27,7 +27,9 @@ class TestBuildSystemPrompt:
         assert "LIGHT" in prompt
 
     def test_includes_repo_context(self):
-        prompt = build_system_prompt(repo_context="Language: Python\nFramework: FastAPI")
+        prompt = build_system_prompt(
+            repo_context="Language: Python\nFramework: FastAPI"
+        )
         assert "Python" in prompt
         assert "FastAPI" in prompt
 
@@ -59,7 +61,9 @@ class TestBuildUserPrompt:
         assert "(no description)" in prompt
 
     def test_includes_rag_context(self):
-        prompt = build_user_prompt("Title", "Desc", "diff", rag_context="def helper(): ...")
+        prompt = build_user_prompt(
+            "Title", "Desc", "diff", rag_context="def helper(): ..."
+        )
         assert "def helper(): ..." in prompt
         assert "Relevant source context" in prompt
 
@@ -72,7 +76,9 @@ class TestBuildUserPrompt:
         assert "(empty)" in prompt
 
     def test_allowed_file_paths_in_user_prompt(self):
-        prompt = build_user_prompt("T", "D", "diff", allowed_file_paths=["a.py", "b.py"])
+        prompt = build_user_prompt(
+            "T", "D", "diff", allowed_file_paths=["a.py", "b.py"]
+        )
         assert "ALLOWED_FILE_PATHS" in prompt
         assert "a.py" in prompt
         assert "b.py" in prompt
@@ -84,7 +90,9 @@ class TestBuildUserPrompt:
 class TestBuildReviewMessages:
     def test_returns_system_and_human_messages(self):
         messages = build_review_messages(
-            title="PR", description="desc", diff="diff",
+            title="PR",
+            description="desc",
+            diff="diff",
         )
         assert len(messages) == 2
         assert isinstance(messages[0], SystemMessage)
@@ -92,27 +100,35 @@ class TestBuildReviewMessages:
 
     def test_system_message_uses_review_mode(self):
         messages = build_review_messages(
-            title="PR", description="desc", diff="diff",
+            title="PR",
+            description="desc",
+            diff="diff",
             review_mode="light",
         )
         assert "LIGHT" in messages[0].content
 
     def test_human_message_contains_diff(self):
         messages = build_review_messages(
-            title="PR", description="desc", diff="+new line",
+            title="PR",
+            description="desc",
+            diff="+new line",
         )
         assert "+new line" in messages[1].content
 
     def test_repo_context_in_system_message(self):
         messages = build_review_messages(
-            title="PR", description="desc", diff="diff",
+            title="PR",
+            description="desc",
+            diff="diff",
             repo_context="Language: Rust",
         )
         assert "Rust" in messages[0].content
 
     def test_rag_context_in_human_message(self):
         messages = build_review_messages(
-            title="PR", description="desc", diff="diff",
+            title="PR",
+            description="desc",
+            diff="diff",
             rag_context="def existing_func(): pass",
         )
         assert "existing_func" in messages[1].content
