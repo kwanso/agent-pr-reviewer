@@ -52,5 +52,9 @@ include = ["app*"]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+[tool.isort]
+profile = "black"
+line_length = 88
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
