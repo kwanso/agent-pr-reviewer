@@ -41,7 +41,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to:
 
-**Email:** conduct@kwanso.com
+**Email:** khalid.rasool@kwanso.com
 
 All complaints will be reviewed and investigated promptly and fairly. We are committed to maintaining the confidentiality of the reporter of any incident. Further details of specific enforcement policies may be posted separately.
 

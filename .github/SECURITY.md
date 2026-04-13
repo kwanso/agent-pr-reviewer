@@ -124,7 +124,7 @@ We follow responsible disclosure practices:
 
 ## Security Contact
 
-- **Email:** security@kwanso.com
+- **Email:** khalid.rasool@kwanso.com
 - **Response Time:** 48 hours
 - **Language:** English preferred, others welcome
 

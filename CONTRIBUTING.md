@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This document provides guidelines a
 
 - **Questions?** Check [Discussions](https://github.com/kwanso-khalid/kwanso-agent-pr/discussions)
 - **Found a bug?** Open an [Issue](https://github.com/kwanso-khalid/kwanso-agent-pr/issues)
-- **Security issue?** Email [security@kwanso.com](mailto:security@kwanso.com) instead of opening a public issue
+- **Security issue?** Email [khalid.rasool@kwanso.com](mailto:khalid.rasool@kwanso.com) instead of opening a public issue
 
 ## 🚀 Development Setup
 
