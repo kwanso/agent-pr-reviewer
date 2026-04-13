@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pr-review-agent
+    ports:
+      - "3400:3400"
+    environment:
+      # Load from .env file (create from .env.example)
+      GITHUB_APP_ID: ${GITHUB_APP_ID}
+      GITHUB_APP_PRIVATE_KEY_PATH: ${GITHUB_APP_PRIVATE_KEY_PATH:-./app.pem}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_FLASH_MODEL: ${LLM_FLASH_MODEL:-gemini-2.5-flash}
+      REVIEW_PROFILE: ${REVIEW_PROFILE:-cost_safe}
+      PORT: ${PORT:-3400}
+      DB_PATH: ${DB_PATH:-./data/checkpoints.db}
+    volumes:
+      # Mount app.pem if using file-based private key
+      - ./app.pem:/app/app.pem:ro
+      # Persist database checkpoints
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:3400/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    # Uncomment for development with live reload
+    # command: uvicorn app.server:app --host 0.0.0.0 --port 3400 --reload
+    networks:
+      - default
+
+networks:
+  default:
+    name: pr-review-network

@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Environment
+.env
+.env.local
+*.pem
+*.key
+
+# Python
+__pycache__
+*.py[cod]
+*.egg-info
+.Python
+venv/
+env/
+.venv
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*.swn
+*.sublime-project
+*.sublime-workspace
+
+# Documentation
+docs/
+*.md
+README.md
+CONTRIBUTING.md
+LICENSE
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Other
+.DS_Store
+Thumbs.db
+.qodo
+data/checkpoints.db*
+.pytest_cache
+node_modules

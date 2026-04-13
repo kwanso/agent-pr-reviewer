@@ -1,0 +1,44 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "id": 1,
+    "number": 123,
+    "state": "open",
+    "title": "Add new authentication module",
+    "user": {
+      "login": "john-developer",
+      "id": 12345
+    },
+    "body": "This PR adds JWT-based authentication to the API.\n\nChanges:\n- Add JWT token generation\n- Add token validation middleware\n- Add refresh token support",
+    "created_at": "2026-04-13T10:30:00Z",
+    "updated_at": "2026-04-13T10:30:00Z",
+    "head": {
+      "ref": "feature/auth-module",
+      "sha": "abc123def456789"
+    },
+    "base": {
+      "ref": "main",
+      "sha": "000000000000000"
+    }
+  },
+  "repository": {
+    "id": 987654,
+    "name": "my-api",
+    "full_name": "myorg/my-api",
+    "private": false,
+    "owner": {
+      "login": "myorg",
+      "id": 54321
+    },
+    "html_url": "https://github.com/myorg/my-api",
+    "description": "My awesome API",
+    "language": "Python"
+  },
+  "installation": {
+    "id": 9876543
+  },
+  "sender": {
+    "login": "john-developer",
+    "id": 12345
+  }
+}

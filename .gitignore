@@ -1,0 +1,45 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment & Secrets (NEVER commit these)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+app.pem
+
+# Data / runtime
+data/*.db
+data/*.db-*
+data/*.sqlite
+data/checkpoints.db*
+
+# Internal notes
+MEETING_NOTES.md
+.qodo/
+
+# OS
+.DS_Store
+Thumbs.db
