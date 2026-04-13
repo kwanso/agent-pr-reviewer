@@ -59,7 +59,7 @@ jobs:
           pip install black isort mypy
 
       - name: Check formatting with Black
-        run: black --check app/ tests/
+        run: black --check --target-version py311 app/ tests/
 
       - name: Check import sorting with isort
         run: isort --check-only app/ tests/

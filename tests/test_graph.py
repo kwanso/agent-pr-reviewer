@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from app.graph import (build_graph, route_after_analysis, route_after_fetch,
-                       route_after_merge, route_after_review,
-                       route_after_validate)
+from app.graph import (
+    build_graph,
+    route_after_analysis,
+    route_after_fetch,
+    route_after_merge,
+    route_after_review,
+    route_after_validate,
+)
 
 # ── route_after_fetch ────────────────────────────────────────────────
 

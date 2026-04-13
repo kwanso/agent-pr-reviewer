@@ -9,8 +9,7 @@ import structlog
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.config import get_settings
-from app.models import (ReviewFinding, ReviewOutput, parse_review_json,
-                        parse_review_text)
+from app.models import ReviewFinding, ReviewOutput, parse_review_json, parse_review_text
 from app.services import rag
 from app.state import PRReviewState
 from app.utils.prompts import build_review_messages
