@@ -6,14 +6,8 @@ import json
 
 import pytest
 
-from app.models import (
-    InlineComment,
-    ReviewFinding,
-    ReviewOutput,
-    merge_reviews,
-    parse_review_json,
-    parse_review_text,
-)
+from app.models import (InlineComment, ReviewFinding, ReviewOutput,
+                        merge_reviews, parse_review_json, parse_review_text)
 
 # ── ReviewOutput.is_clean ────────────────────────────────────────────
 

@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app.utils.prompts import (
-    build_review_messages,
-    build_system_prompt,
-    build_user_prompt,
-)
+from app.utils.prompts import (build_review_messages, build_system_prompt,
+                               build_user_prompt)
 
 # ── build_system_prompt ──────────────────────────────────────────────
 

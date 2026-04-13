@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.utils.diff import analyze_diff, compact_patch, score_risk, should_ignore_file
+from app.utils.diff import (analyze_diff, compact_patch, score_risk,
+                            should_ignore_file)
 
 # ── should_ignore_file ───────────────────────────────────────────────
 
