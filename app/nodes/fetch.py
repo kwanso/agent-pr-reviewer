@@ -75,13 +75,45 @@ async def fetch_pr(state: PRReviewState) -> dict:
     }
 
 
+def _sanitize_config_value(value: any, max_length: int = 500) -> str:
+    """Safely convert config value to string, rejecting complex types.
+
+    Prevents prompt injection by:
+    1. Rejecting nested dicts/lists (only allow scalar strings)
+    2. Truncating to max_length
+    3. Removing control characters
+    """
+    if isinstance(value, (dict, list)):
+        return ""
+
+    s = str(value)[:max_length]
+    # Keep only printable characters + newline/tab
+    return "".join(c for c in s if c.isprintable() or c in "\n\t")
+
+
 def _build_repo_context(config: dict) -> str:
+    """Build repo context block from config, with injection prevention."""
     parts: list[str] = []
-    if config.get("language"):
-        parts.append(f"Language: {config['language']}")
-    if config.get("framework"):
-        parts.append(f"Framework: {config['framework']}")
-    focus = config.get("review_focus")
-    if focus and isinstance(focus, list):
-        parts.append(f"Review focus: {', '.join(str(f) for f in focus)}")
+
+    # Only process known safe keys
+    safe_keys = ["language", "framework", "review_focus"]
+
+    for key in safe_keys:
+        value = config.get(key)
+        if not value:
+            continue
+
+        # Handle special case for lists
+        if key == "review_focus" and isinstance(value, list):
+            focus_items = [_sanitize_config_value(f) for f in value[:5]]  # Max 5 items
+            focus_items = [f for f in focus_items if f]  # Filter empty
+            if focus_items:
+                parts.append(f"Review focus: {', '.join(focus_items)}")
+        else:
+            sanitized = _sanitize_config_value(value)
+            if sanitized:
+                # Capitalize key for readability
+                key_display = key.replace("_", " ").title()
+                parts.append(f"{key_display}: {sanitized}")
+
     return "\n".join(parts)

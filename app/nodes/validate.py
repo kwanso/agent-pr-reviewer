@@ -73,38 +73,64 @@ def _rebuild_review(pending: list[dict]) -> ReviewOutput:
 
 
 async def validate_findings(state: PRReviewState) -> dict:
-    """Drop hallucinated or weak findings using the chunk diff + allowed paths as ground truth."""
+    """Drop hallucinated or weak findings using the chunk diff + allowed paths as ground truth.
+
+    Validates all unvalidated chunks (chunk_reviews that are not yet in filtered_reviews).
+    Uses the corresponding chunk plan to ground truth validation.
+    """
     settings = get_settings()
     chunk_reviews = state.get("chunk_reviews", [])
+    filtered_reviews = state.get("filtered_reviews", [])
+    plans = state.get("chunk_plans", [])
+
     if not chunk_reviews:
         return {}
 
-    last = chunk_reviews[-1]
-    idx = state.get("current_chunk_idx", 0)
-    plans = state.get("chunk_plans", [])
-    plan = plans[idx] if idx < len(plans) else {}
-    chunk_diff = plan.get("chunk_text", "")
-    allowed = plan.get("files", [])
+    # Determine which chunks need validation
+    # filtered_reviews accumulates, so we validate chunk_reviews[len(filtered_reviews):]
+    num_already_validated = len(filtered_reviews)
+    chunks_to_validate = chunk_reviews[num_already_validated:]
 
-    review = _review_from_chunk_dict(last)
-    pending = _flatten_for_validation(review)
+    if not chunks_to_validate:
+        return {}
 
-    if not pending:
-        out = {**last}
-        return {"filtered_reviews": [out], "validated_findings": []}
+    all_validated = []
 
-    if settings.llm_mock_mode:
-        return {"filtered_reviews": [last], "validated_findings": pending}
+    for chunk_review in chunks_to_validate:
+        # Get the corresponding plan for this chunk
+        chunk_idx = chunk_review.get("chunk_index", 0)
+        if chunk_idx >= len(plans):
+            log.warning("validate_findings_plan_not_found", chunk_index=chunk_idx)
+            all_validated.append(chunk_review)
+            continue
 
-    findings_text = "\n".join(
-        f"[{i}] ({p['bucket']}) {p['issue'][:400]}\n"
-        f"    evidence: {p.get('evidence', '')[:300]}\n"
-        f"    file_path={p.get('file_path')!r} line={p.get('line')}\n"
-        f"    confidence={p.get('confidence', 0.7):.2f}"
-        for i, p in enumerate(pending)
-    )
+        plan = plans[chunk_idx]
+        chunk_diff = plan.get("chunk_text", "")
+        allowed = plan.get("files", [])
 
-    validator_user = f"""Ground-truth for this chunk:
+        review = _review_from_chunk_dict(chunk_review)
+        pending = _flatten_for_validation(review)
+
+        if not pending:
+            # No findings to validate; pass through
+            out = {**chunk_review}
+            all_validated.append(out)
+            continue
+
+        if settings.llm_mock_mode:
+            all_validated.append(chunk_review)
+            continue
+
+        # Validate this chunk's findings
+        findings_text = "\n".join(
+            f"[{i}] ({p['bucket']}) {p['issue'][:400]}\n"
+            f"    evidence: {p.get('evidence', '')[:300]}\n"
+            f"    file_path={p.get('file_path')!r} line={p.get('line')}\n"
+            f"    confidence={p.get('confidence', 0.7):.2f}"
+            for i, p in enumerate(pending)
+        )
+
+        validator_user = f"""Ground-truth for this chunk (chunk_index={chunk_idx}):
 ALLOWED_FILE_PATHS (only valid targets for file_path / inline file):
 {chr(10).join(f"- {p}" for p in allowed) if allowed else "(paths must match diff headers only)"}
 
@@ -124,67 +150,70 @@ For EACH index, return JSON objects with:
 
 Output a single JSON array only, no markdown."""
 
-    llm = ChatGoogleGenerativeAI(
-        model=settings.llm_flash_model,
-        google_api_key=settings.llm_api_key,
-        temperature=0.0,
-        max_output_tokens=2048,
-        max_retries=1,
-        timeout=settings.llm_timeout_s,
-    )
-
-    try:
-        response = await llm.ainvoke(
-            [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a strict code-review auditor. "
-                        "Reject findings that are not clearly supported by the supplied diff excerpt, "
-                        "that reference files outside ALLOWED_FILE_PATHS (when that list is non-empty), "
-                        "or that restate generic advice. Prefer precision over politeness."
-                    ),
-                },
-                {"role": "user", "content": validator_user},
-            ]
+        llm = ChatGoogleGenerativeAI(
+            model=settings.llm_flash_model,
+            google_api_key=settings.llm_api_key,
+            temperature=0.0,
+            max_output_tokens=2048,
+            max_retries=1,
+            timeout=settings.llm_timeout_s,
         )
 
-        validated_pending = [dict(p) for p in pending]
-        text = response.content
-        start = text.find("[")
-        end = text.rfind("]") + 1
-        if start != -1 and end > start:
-            adjustments = json.loads(text[start:end])
-            for adj in adjustments:
-                i = int(adj.get("index", -1))
-                if 0 <= i < len(validated_pending):
-                    if not adj.get("keep", True):
-                        validated_pending[i]["confidence"] = 0.0
-                    else:
-                        c = float(
-                            adj.get("confidence", validated_pending[i]["confidence"])
-                        )
-                        validated_pending[i]["confidence"] = max(0.0, min(1.0, c))
+        try:
+            response = await llm.ainvoke(
+                [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a strict code-review auditor. "
+                            "Reject findings that are not clearly supported by the supplied diff excerpt, "
+                            "that reference files outside ALLOWED_FILE_PATHS (when that list is non-empty), "
+                            "or that restate generic advice. Prefer precision over politeness."
+                        ),
+                    },
+                    {"role": "user", "content": validator_user},
+                ]
+            )
 
-        rebuilt = _rebuild_review(validated_pending)
-        rebuilt.inline_comments = review.inline_comments
+            validated_pending = [dict(p) for p in pending]
+            text = response.content
+            start = text.find("[")
+            end = text.rfind("]") + 1
+            if start != -1 and end > start:
+                adjustments = json.loads(text[start:end])
+                for adj in adjustments:
+                    i = int(adj.get("index", -1))
+                    if 0 <= i < len(validated_pending):
+                        if not adj.get("keep", True):
+                            validated_pending[i]["confidence"] = 0.0
+                        else:
+                            c = float(
+                                adj.get("confidence", validated_pending[i]["confidence"])
+                            )
+                            validated_pending[i]["confidence"] = max(0.0, min(1.0, c))
 
-        filtered = rebuilt.model_dump()
-        filtered["chunk_index"] = last.get("chunk_index", idx)
-        filtered["review_mode"] = last.get("review_mode", "")
-        filtered["risk_score"] = last.get("risk_score", 0)
+            rebuilt = _rebuild_review(validated_pending)
+            rebuilt.inline_comments = review.inline_comments
 
-        log.info(
-            "findings_validated",
-            total=len(pending),
-            kept=sum(1 for p in validated_pending if p.get("confidence", 0) >= 0.5),
-        )
+            filtered = rebuilt.model_dump()
+            filtered["chunk_index"] = chunk_review.get("chunk_index", chunk_idx)
+            filtered["review_mode"] = chunk_review.get("review_mode", "")
+            filtered["risk_score"] = chunk_review.get("risk_score", 0)
 
-        return {
-            "filtered_reviews": [filtered],
-            "validated_findings": validated_pending,
-        }
+            log.info(
+                "findings_validated",
+                chunk_index=chunk_idx,
+                total=len(pending),
+                kept=sum(1 for p in validated_pending if p.get("confidence", 0) >= 0.5),
+            )
 
-    except Exception as exc:
-        log.warning("validation_failed", error=str(exc))
-        return {"filtered_reviews": [last], "validated_findings": pending}
+            all_validated.append(filtered)
+
+        except Exception as exc:
+            log.warning(
+                "validation_failed", chunk_index=chunk_idx, error=str(exc)
+            )
+            # On validation error, pass through the original chunk review
+            all_validated.append(chunk_review)
+
+    return {"filtered_reviews": all_validated}

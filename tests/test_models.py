@@ -91,7 +91,7 @@ class TestToMarkdown:
                     issue="utils.py:3 - Prefer pathlib",
                     why_it_matters="Cross-platform edge cases.",
                     suggested_fix="Replace os.path joins with Path.",
-                    evidence="",
+                    evidence="Line 3: os.path.join(a, b)",  # Added evidence
                     confidence=0.7,
                 ),
             ],

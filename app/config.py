@@ -64,6 +64,10 @@ class Settings(BaseSettings):
 
     enable_early_exit: bool = False
 
+    # Token budgeting
+    token_budget_per_review: int = 100000  # Max tokens per PR review
+    token_budget_threshold_pct: float = 0.9  # Stop at 90% budget used
+
     # RAG
     enable_rag: bool = True
     rag_embedding_model: str = "models/gemini-embedding-001"

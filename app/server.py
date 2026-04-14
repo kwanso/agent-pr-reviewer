@@ -12,11 +12,66 @@ from typing import Any
 import structlog
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from pydantic import BaseModel, ValidationError, field_validator
 
 from app.config import get_settings
 from app.graph import build_graph
 
 log = structlog.get_logger()
+
+
+class GitHubUser(BaseModel):
+    """GitHub user object."""
+
+    login: str
+
+
+class GitHubRepository(BaseModel):
+    """GitHub repository object."""
+
+    name: str
+    owner: GitHubUser
+
+
+class GitHubCommit(BaseModel):
+    """GitHub commit reference."""
+
+    sha: str
+
+
+class GitHubPullRequest(BaseModel):
+    """GitHub pull request object."""
+
+    number: int
+    title: str = ""  # Default empty title (may be present in webhook)
+    body: str | None = None
+    draft: bool = False
+    state: str = "open"
+    head: GitHubCommit
+    labels: list[dict] = []
+    changed_files: int = 0
+
+    @field_validator("number")
+    @classmethod
+    def validate_pr_number(cls, v):
+        if v <= 0:
+            raise ValueError("PR number must be positive")
+        return v
+
+
+class GitHubInstallation(BaseModel):
+    """GitHub App installation."""
+
+    id: int
+
+
+class GitHubWebhookPayload(BaseModel):
+    """GitHub webhook payload schema."""
+
+    action: str  # Webhook may send any action; we filter later
+    pull_request: GitHubPullRequest
+    repository: GitHubRepository
+    installation: GitHubInstallation | None = None
 
 _compiled_graph: Any = None
 
@@ -101,25 +156,48 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
     if event != "pull_request":
         return {"status": "ignored", "event": event}
 
-    payload = await request.json()
-    action = payload.get("action", "")
-    if action not in ("opened", "synchronize", "reopened"):
-        return {"status": "ignored", "action": action}
+    try:
+        payload_dict = await request.json()
+    except Exception as e:
+        log.warning("webhook_json_parse_failed", error=str(e))
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
-    pr = payload.get("pull_request", {})
-    repo_data = payload.get("repository", {})
-    owner = repo_data.get("owner", {}).get("login", "")
-    repo_name = repo_data.get("name", "")
-    pr_number = pr.get("number")
-    head_sha = pr.get("head", {}).get("sha", "")
+    # Validate webhook payload schema
+    try:
+        payload = GitHubWebhookPayload(**payload_dict)
+    except ValidationError as e:
+        log.warning("webhook_validation_failed", errors=e.errors())
+        raise HTTPException(
+            status_code=400, detail=f"Invalid webhook payload: {e.errors()[0]['msg']}"
+        )
+
+    # Filter for actions we care about
+    if payload.action not in ("opened", "synchronize", "reopened"):
+        log.info(
+            "webhook_ignored_action",
+            action=payload.action,
+            reason="not in [opened, synchronize, reopened]",
+        )
+        return {"status": "ignored", "action": payload.action}
+
+    owner = payload.repository.owner.login
+    repo_name = payload.repository.name
+    pr_number = payload.pull_request.number
+    head_sha = payload.pull_request.head.sha
     delivery_id = request.headers.get(
         "x-github-delivery",
         str(uuid.uuid4()),
     )
-    installation_id = payload.get("installation", {}).get("id")
+    installation_id = payload.installation.id if payload.installation else None
 
-    if not all([owner, repo_name, pr_number]):
-        raise HTTPException(status_code=400, detail="Missing required PR fields")
+    log.info(
+        "webhook_validated",
+        owner=owner,
+        repo=repo_name,
+        pr=pr_number,
+        action=payload.action,
+        delivery_id=delivery_id,
+    )
 
     input_state: dict = {
         "owner": owner,

@@ -5,10 +5,14 @@ Relevant code is found by both meaning and exact keyword matches.
 
 The stores are not serializable, so they live in module-level dicts
 keyed by ``delivery_id``. After the review completes, ``cleanup()`` frees memory.
+
+Memory leak prevention: Indices older than MAX_INDEX_AGE_HOURS are automatically
+removed. Indices should be explicitly cleaned up via cleanup() when a review finishes.
 """
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import structlog
@@ -18,6 +22,10 @@ log = structlog.get_logger()
 _stores: dict[str, Any] = {}  # FAISS vector stores
 _bm25_stores: dict[str, Any] = {}  # BM25 keyword stores
 _metadata_stores: dict[str, Any] = {}  # File metadata for ranking
+_index_created_at: dict[str, float] = {}  # delivery_id -> creation timestamp
+
+# Maximum age for in-memory indices before auto-cleanup (hours)
+MAX_INDEX_AGE_HOURS = 24
 
 
 async def build_index(
@@ -122,6 +130,11 @@ async def build_index(
                 return False
 
         _metadata_stores[delivery_id] = metadata
+        _index_created_at[delivery_id] = time.time()
+
+        # Cleanup expired indices before logging success
+        cleanup_expired_indices()
+
         log.info(
             "rag_index_built",
             delivery_id=delivery_id,
@@ -235,3 +248,33 @@ def cleanup(delivery_id: str) -> None:
     _stores.pop(delivery_id, None)
     _bm25_stores.pop(delivery_id, None)
     _metadata_stores.pop(delivery_id, None)
+    _index_created_at.pop(delivery_id, None)
+    log.info("rag_cleanup_completed", delivery_id=delivery_id)
+
+
+def cleanup_expired_indices() -> None:
+    """Remove RAG indices older than MAX_INDEX_AGE_HOURS.
+
+    Called periodically to prevent memory leaks from abandoned reviews.
+    """
+    now = time.time()
+    max_age_seconds = MAX_INDEX_AGE_HOURS * 3600
+
+    expired_ids = [
+        d_id
+        for d_id, created_at in _index_created_at.items()
+        if (now - created_at) > max_age_seconds
+    ]
+
+    if not expired_ids:
+        return
+
+    for d_id in expired_ids:
+        cleanup(d_id)
+
+    log.info(
+        "rag_expired_indices_cleanup",
+        removed_count=len(expired_ids),
+        remaining_count=len(_index_created_at),
+        max_age_hours=MAX_INDEX_AGE_HOURS,
+    )
