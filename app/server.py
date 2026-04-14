@@ -204,7 +204,7 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         "repo": repo_name,
         "pr_number": pr_number,
         "head_sha": head_sha,
-        "action": action,
+        "action": payload.action,
         "delivery_id": delivery_id,
         "installation_id": installation_id,
         # Pre-initialise reducer fields so operator.add works on first append.
