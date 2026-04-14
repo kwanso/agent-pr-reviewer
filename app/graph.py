@@ -44,6 +44,7 @@ def route_after_review(state: PRReviewState) -> str:
     Early exit conditions:
     - early_exit flag: First chunk clean, stop processing
     - quota_exhausted: API quota hit, stop immediately (can't recover)
+    - token_budget_exhausted: Token budget exceeded, stop immediately
     """
     plans = state.get("chunk_plans", [])
     idx = state.get("current_chunk_idx", 0)
@@ -51,6 +52,10 @@ def route_after_review(state: PRReviewState) -> str:
 
     if state.get("early_exit"):
         return "merge"
+
+    # Token budget exhausted: stop immediately
+    if state.get("token_budget_exhausted"):
+        return "validate" if has_reviews else "degraded"
 
     # Quota exhausted: stop immediately (no point retrying)
     if state.get("quota_exhausted"):

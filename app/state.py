@@ -66,3 +66,8 @@ class PRReviewState(TypedDict, total=False):
     # ── Skip ─────────────────────────────────────────────────────────
     skipped: bool
     skip_reason: str
+
+    # ── Token budget tracking ─────────────────────────────────────────
+    token_budget_max: int
+    token_budget_used: int
+    token_budget_exhausted: bool

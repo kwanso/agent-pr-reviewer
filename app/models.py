@@ -79,10 +79,10 @@ class ReviewFinding(BaseModel):
         description="Line in file if known from diff; null otherwise",
     )
     confidence: float = Field(
-        default=0.85,
+        default=0.60,
         ge=0.0,
         le=1.0,
-        description="0.0–1.0; omit finding (or set <0.5) if speculative",
+        description="0.0–1.0; omit finding (or set <0.5) if speculative. Default 0.60 is conservative for fallback parsing.",
     )
 
     @field_validator("file_path", mode="before")
@@ -100,6 +100,16 @@ class ReviewFinding(BaseModel):
             updates["why_it_matters"] = _DEFAULT_WHY
         if not (self.suggested_fix or "").strip():
             updates["suggested_fix"] = _DEFAULT_FIX
+
+        # For high-confidence findings, evidence is required
+        if self.confidence >= 0.6 and not (self.evidence or "").strip():
+            # Lower confidence for findings without evidence
+            self.confidence = min(self.confidence * 0.7, 0.5)
+            if "evidence" not in updates:
+                updates["evidence"] = (
+                    f"[Evidence missing for confidence {self.confidence:.1%}]"
+                )
+
         if updates:
             return self.model_copy(update=updates)
         return self

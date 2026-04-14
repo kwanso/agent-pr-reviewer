@@ -3,36 +3,21 @@
 from __future__ import annotations
 
 import asyncio
-import re
 
 import structlog
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.config import get_settings
+from app.errors import ErrorType, classify_llm_error
 from app.models import ReviewFinding, ReviewOutput, parse_review_json, parse_review_text
 from app.services import rag
 from app.state import PRReviewState
 from app.utils.prompts import build_review_messages
+from app.utils.tokens import estimate_messages_tokens, is_budget_exhausted
 
 log = structlog.get_logger()
 
-# ── Rate-limit helpers ────────────────────────────────────────────────
-_RETRY_DELAY_RE = re.compile(
-    r"retry\s*(?:in|Delay['\"]?\s*:\s*['\"]?)\s*([\d.]+)", re.I
-)
 _MAX_RETRIES = 4
-_DEFAULT_BACKOFF_S = 30.0
-
-
-def _is_quota_error(exc: Exception) -> bool:
-    msg = str(exc).lower()
-    return any(kw in msg for kw in ("429", "quota", "rate", "resource_exhausted"))
-
-
-def _parse_retry_delay(exc: Exception) -> float:
-    """Extract the retry delay (seconds) the API suggests, or use default."""
-    m = _RETRY_DELAY_RE.search(str(exc))
-    return float(m.group(1)) if m else _DEFAULT_BACKOFF_S
 
 
 def _build_mock_review(diff: str) -> ReviewOutput:
@@ -64,13 +49,39 @@ async def review_chunk(state: PRReviewState) -> dict:
         return {}
 
     plan = plans[idx]
+
+    # Initialize token budget on first chunk
+    if idx == 0:
+        state["token_budget_max"] = settings.token_budget_per_review
+        state["token_budget_used"] = 0
+        state["token_budget_exhausted"] = False
+
     log.info(
         "reviewing_chunk",
         index=idx,
         total=len(plans),
         risk=plan["risk_score"],
         mode=plan["review_mode"],
+        token_budget_pct=round(
+            100 * state.get("token_budget_used", 0) / state.get("token_budget_max", 1)
+        ),
     )
+
+    # Check token budget exhaustion
+    if is_budget_exhausted(
+        state.get("token_budget_used", 0),
+        state.get("token_budget_max", settings.token_budget_per_review),
+        settings.token_budget_threshold_pct,
+    ):
+        log.warning(
+            "token_budget_exhausted",
+            index=idx,
+            used=state.get("token_budget_used"),
+            max=state.get("token_budget_max"),
+        )
+        state["token_budget_exhausted"] = True
+        # Stop processing; return empty to skip this chunk
+        return {"token_budget_exhausted": True}
 
     # Skip low-risk chunks when quota is exhausted.
     if state.get("quota_exhausted") and plan["risk_score"] < 2:
@@ -99,10 +110,39 @@ async def review_chunk(state: PRReviewState) -> dict:
         allowed_file_paths=plan.get("files") or [],
     )
 
+    # ── Token estimation ─────────────────────────────────────────
+    estimated_input_tokens = estimate_messages_tokens(
+        messages, settings.llm_flash_model
+    )
+    estimated_total_tokens = estimated_input_tokens + settings.llm_max_output_tokens
+
+    log.info(
+        "review_chunk_token_estimate",
+        index=idx,
+        input_tokens=estimated_input_tokens,
+        output_tokens=settings.llm_max_output_tokens,
+        total_estimated=estimated_total_tokens,
+        budget_remaining=state.get("token_budget_max", 0)
+        - state.get("token_budget_used", 0),
+    )
+
+    # Check if this chunk would exceed budget
+    remaining_budget = state.get(
+        "token_budget_max", settings.token_budget_per_review
+    ) - state.get("token_budget_used", 0)
+    if estimated_total_tokens > remaining_budget * 0.8:  # 80% of remaining
+        log.warning(
+            "review_chunk_would_exceed_budget",
+            index=idx,
+            estimated=estimated_total_tokens,
+            remaining=remaining_budget,
+        )
+        return {"token_budget_exhausted": True, "early_exit": True}
+
     # ── Mock mode ────────────────────────────────────────────────
     if settings.llm_mock_mode:
         review = _build_mock_review(plan["chunk_text"])
-        return _success(review, idx, plans, settings)
+        return _success(review, idx, plans, settings, estimated_total_tokens, state)
 
     # ── LLM call with structured output + retry-with-backoff ─────
     llm = ChatGoogleGenerativeAI(
@@ -114,7 +154,7 @@ async def review_chunk(state: PRReviewState) -> dict:
         timeout=settings.llm_timeout_s,
     )
 
-    last_exc: Exception | None = None
+    last_error = None
     for attempt in range(_MAX_RETRIES):
         try:
             structured = llm.with_structured_output(ReviewOutput, include_raw=True)
@@ -128,48 +168,74 @@ async def review_chunk(state: PRReviewState) -> dict:
                     "structured_output_fallback", error=str(result.get("parsing_error"))
                 )
                 review = parse_review_json(raw_text) or parse_review_text(raw_text)
+                if review is None:
+                    log.error(
+                        "review_parsing_failed",
+                        raw_length=len(raw_text),
+                        hint="structured output could not be parsed as JSON or markdown",
+                    )
+                    return {"error": "Review output parsing failed"}
                 if review.is_clean() and raw_text.strip():
                     log.warning(
                         "review_fallback_empty",
                         hint="check LLM_MAX_OUTPUT_TOKENS if JSON was truncated",
                     )
 
-            return _success(review, idx, plans, settings)
+            return _success(review, idx, plans, settings, estimated_total_tokens, state)
 
         except Exception as exc:
-            last_exc = exc
-            if _is_quota_error(exc) and attempt < _MAX_RETRIES - 1:
-                delay = _parse_retry_delay(exc) + 2  # +2s safety margin
+            last_error = classify_llm_error(exc)
+
+            # Retriable error and attempts remaining
+            if last_error.retriable and attempt < _MAX_RETRIES - 1:
                 log.warning(
-                    "rate_limited_retrying",
+                    "review_chunk_retrying",
                     index=idx,
                     attempt=attempt + 1,
-                    retry_in_s=round(delay, 1),
+                    error_type=last_error.error_type.value,
+                    retry_after_s=round(last_error.retry_after_s, 1),
                 )
-                await asyncio.sleep(delay)
+                await asyncio.sleep(last_error.retry_after_s)
                 continue
+
+            # Non-retriable or retries exhausted
             break
 
     # All retries exhausted or non-retriable error
-    error_str = str(last_exc) if last_exc else "Unknown error"
-    error_type = type(last_exc).__name__ if last_exc else "Unknown"
+    if last_error is None:
+        last_error = classify_llm_error(Exception("Unknown error"))
 
     log.error(
         "chunk_review_failed",
         index=idx,
-        error=error_str,
-        error_type=error_type,
+        chunk_size=len(plan["chunk_text"]),
+        chunk_files=plan.get("files"),
+        attempts_made=_MAX_RETRIES if last_error.retriable else 1,
+        error_type=last_error.error_type.value,
+        error_message=last_error.message,
     )
 
-    # Service overload: stop processing to preserve quota
-    if last_exc and "UNAVAILABLE" in error_str:
-        log.warning("llm_service_overloaded", stopping_chunk_processing=True)
-        return {"early_exit": True, "error": f"LLM unavailable: {error_str[:100]}"}
+    # Handle specific error types
+    if last_error.error_type == ErrorType.SERVICE_UNAVAILABLE:
+        log.warning(
+            "llm_service_unavailable",
+            stopping_chunk_processing=True,
+            recommendation="circuit-break and retry later",
+        )
+        return {"early_exit": True, "error": last_error.message}
 
-    if _is_quota_error(last_exc):
-        return {"quota_exhausted": True, "error": error_str}
+    if last_error.error_type == ErrorType.QUOTA_EXHAUSTED:
+        return {"quota_exhausted": True, "error": last_error.message}
 
-    return {"error": error_str}
+    if last_error.error_type == ErrorType.AUTH_FAILED:
+        log.critical("llm_auth_failed", recommendation="check API credentials")
+        return {
+            "early_exit": True,
+            "error": f"LLM authentication failed: {last_error.message}",
+        }
+
+    # Generic error
+    return {"error": last_error.message}
 
 
 def _success(
@@ -177,6 +243,8 @@ def _success(
     idx: int,
     plans: list[dict],
     settings: object,
+    estimated_tokens: int = 0,
+    state: dict | None = None,
 ) -> dict:
     review_dict = review.model_dump()
     review_dict["chunk_index"] = idx
@@ -190,11 +258,19 @@ def _success(
         and review.is_clean()
     )
 
-    return {
+    result = {
         "chunk_reviews": [review_dict],
         "model_usage": [getattr(settings, "llm_flash_model", "unknown")],
         "early_exit": early_exit,
     }
+
+    # Track token usage
+    if state is not None and estimated_tokens > 0:
+        result["token_budget_used"] = (
+            state.get("token_budget_used", 0) + estimated_tokens
+        )
+
+    return result
 
 
 async def advance_chunk(state: PRReviewState) -> dict:
