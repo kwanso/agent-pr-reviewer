@@ -5,8 +5,9 @@ Tests error handling, recovery, and fallback behavior.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from app.errors import ErrorType, classify_llm_error
 from app.graph import route_after_review
@@ -147,8 +148,8 @@ class TestReviewChunkErrorHandling:
         state["current_chunk_idx"] = 1
 
         # Should skip low-risk chunks when quota exhausted
-        from app.nodes.review import review_chunk
         from app.config import get_settings
+        from app.nodes.review import review_chunk
 
         # Mock to check if we skip processing
         with patch("app.nodes.review.log") as mock_log:
@@ -291,8 +292,9 @@ class TestRAGCleanup:
 
     def test_rag_cleanup_expired_indices(self):
         """Expired indices are removed automatically."""
-        from app.services import rag
         import time
+
+        from app.services import rag
 
         # Add old and new indices
         old_time = time.time() - (25 * 3600)  # 25 hours ago
@@ -368,8 +370,9 @@ class TestWebhookValidation:
 
     def test_webhook_payload_missing_pr_number(self):
         """Missing PR number is rejected."""
-        from app.server import GitHubWebhookPayload
         from pydantic import ValidationError
+
+        from app.server import GitHubWebhookPayload
 
         payload = {
             "action": "opened",
