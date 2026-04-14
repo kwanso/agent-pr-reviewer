@@ -106,7 +106,9 @@ class ReviewFinding(BaseModel):
             # Lower confidence for findings without evidence
             self.confidence = min(self.confidence * 0.7, 0.5)
             if "evidence" not in updates:
-                updates["evidence"] = f"[Evidence missing for confidence {self.confidence:.1%}]"
+                updates["evidence"] = (
+                    f"[Evidence missing for confidence {self.confidence:.1%}]"
+                )
 
         if updates:
             return self.model_copy(update=updates)

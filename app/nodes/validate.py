@@ -188,7 +188,9 @@ Output a single JSON array only, no markdown."""
                             validated_pending[i]["confidence"] = 0.0
                         else:
                             c = float(
-                                adj.get("confidence", validated_pending[i]["confidence"])
+                                adj.get(
+                                    "confidence", validated_pending[i]["confidence"]
+                                )
                             )
                             validated_pending[i]["confidence"] = max(0.0, min(1.0, c))
 
@@ -210,9 +212,7 @@ Output a single JSON array only, no markdown."""
             all_validated.append(filtered)
 
         except Exception as exc:
-            log.warning(
-                "validation_failed", chunk_index=chunk_idx, error=str(exc)
-            )
+            log.warning("validation_failed", chunk_index=chunk_idx, error=str(exc))
             # On validation error, pass through the original chunk review
             all_validated.append(chunk_review)
 

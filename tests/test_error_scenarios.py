@@ -97,7 +97,9 @@ class TestReviewFindingValidation:
             evidence="",  # Empty evidence
         )
         # Confidence should be reduced
-        assert finding.confidence < 0.6, "High confidence without evidence should be penalized"
+        assert (
+            finding.confidence < 0.6
+        ), "High confidence without evidence should be penalized"
 
     def test_finding_high_confidence_with_evidence(self):
         """High confidence findings with evidence are preserved."""
@@ -122,8 +124,18 @@ class TestReviewChunkErrorHandling:
             "pr_number": 1,
             "delivery_id": "test-delivery",
             "chunk_plans": [
-                {"risk_score": 1, "review_mode": "light", "chunk_text": "code1", "files": []},
-                {"risk_score": 1, "review_mode": "light", "chunk_text": "code2", "files": []},
+                {
+                    "risk_score": 1,
+                    "review_mode": "light",
+                    "chunk_text": "code1",
+                    "files": [],
+                },
+                {
+                    "risk_score": 1,
+                    "review_mode": "light",
+                    "chunk_text": "code2",
+                    "files": [],
+                },
             ],
             "current_chunk_idx": 0,
             "chunk_reviews": [],

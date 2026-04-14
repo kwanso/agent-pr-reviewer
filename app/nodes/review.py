@@ -111,7 +111,9 @@ async def review_chunk(state: PRReviewState) -> dict:
     )
 
     # ── Token estimation ─────────────────────────────────────────
-    estimated_input_tokens = estimate_messages_tokens(messages, settings.llm_flash_model)
+    estimated_input_tokens = estimate_messages_tokens(
+        messages, settings.llm_flash_model
+    )
     estimated_total_tokens = estimated_input_tokens + settings.llm_max_output_tokens
 
     log.info(
@@ -125,10 +127,9 @@ async def review_chunk(state: PRReviewState) -> dict:
     )
 
     # Check if this chunk would exceed budget
-    remaining_budget = (
-        state.get("token_budget_max", settings.token_budget_per_review)
-        - state.get("token_budget_used", 0)
-    )
+    remaining_budget = state.get(
+        "token_budget_max", settings.token_budget_per_review
+    ) - state.get("token_budget_used", 0)
     if estimated_total_tokens > remaining_budget * 0.8:  # 80% of remaining
         log.warning(
             "review_chunk_would_exceed_budget",
@@ -141,9 +142,7 @@ async def review_chunk(state: PRReviewState) -> dict:
     # ── Mock mode ────────────────────────────────────────────────
     if settings.llm_mock_mode:
         review = _build_mock_review(plan["chunk_text"])
-        return _success(
-            review, idx, plans, settings, estimated_total_tokens, state
-        )
+        return _success(review, idx, plans, settings, estimated_total_tokens, state)
 
     # ── LLM call with structured output + retry-with-backoff ─────
     llm = ChatGoogleGenerativeAI(
@@ -182,9 +181,7 @@ async def review_chunk(state: PRReviewState) -> dict:
                         hint="check LLM_MAX_OUTPUT_TOKENS if JSON was truncated",
                     )
 
-            return _success(
-                review, idx, plans, settings, estimated_total_tokens, state
-            )
+            return _success(review, idx, plans, settings, estimated_total_tokens, state)
 
         except Exception as exc:
             last_error = classify_llm_error(exc)
@@ -269,7 +266,9 @@ def _success(
 
     # Track token usage
     if state is not None and estimated_tokens > 0:
-        result["token_budget_used"] = state.get("token_budget_used", 0) + estimated_tokens
+        result["token_budget_used"] = (
+            state.get("token_budget_used", 0) + estimated_tokens
+        )
 
     return result
 

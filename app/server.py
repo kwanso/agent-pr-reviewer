@@ -73,6 +73,7 @@ class GitHubWebhookPayload(BaseModel):
     repository: GitHubRepository
     installation: GitHubInstallation | None = None
 
+
 _compiled_graph: Any = None
 
 

@@ -46,7 +46,8 @@ def classify_llm_error(exc: Exception) -> ClassifiedError:
 
     # Quota errors
     if any(
-        kw in msg for kw in ("429", "quota", "rate", "resource_exhausted", "quota exceeded")
+        kw in msg
+        for kw in ("429", "quota", "rate", "resource_exhausted", "quota exceeded")
     ):
         retry_delay = _extract_retry_delay(str(exc)) + 2  # +2s safety margin
         return ClassifiedError(
@@ -60,7 +61,12 @@ def classify_llm_error(exc: Exception) -> ClassifiedError:
     # Service unavailable
     if any(
         kw in msg
-        for kw in ("unavailable", "overloaded", "service unavailable", "too many requests")
+        for kw in (
+            "unavailable",
+            "overloaded",
+            "service unavailable",
+            "too many requests",
+        )
     ):
         return ClassifiedError(
             error_type=ErrorType.SERVICE_UNAVAILABLE,
@@ -81,7 +87,10 @@ def classify_llm_error(exc: Exception) -> ClassifiedError:
         )
 
     # Auth errors
-    if any(kw in msg for kw in ("401", "403", "unauthorized", "forbidden", "invalid api key")):
+    if any(
+        kw in msg
+        for kw in ("401", "403", "unauthorized", "forbidden", "invalid api key")
+    ):
         return ClassifiedError(
             error_type=ErrorType.AUTH_FAILED,
             original_exception=exc,
