@@ -50,10 +50,9 @@ async def merge_results(state: PRReviewState) -> dict:
     review_counts = {}
     for field in REVIEW_BUCKET_FIELDS:
         items = getattr(merged, field, [])
-        count = len([
-            f for f in items
-            if isinstance(f, ReviewFinding) and f.confidence >= 0.5
-        ])
+        count = len(
+            [f for f in items if isinstance(f, ReviewFinding) and f.confidence >= 0.5]
+        )
         review_counts[field] = count
 
     log.info(
