@@ -62,6 +62,7 @@ class PRReviewState(TypedDict, total=False):
     final_summary: str
     inline_comments: list[dict]
     slack_message: str
+    review_counts: dict
 
     # ── Skip ─────────────────────────────────────────────────────────
     skipped: bool

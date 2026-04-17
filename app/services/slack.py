@@ -15,7 +15,12 @@ class SlackNotifier:
         self._client = AsyncWebClient(token=token) if token else None
         self._channel = channel
 
-    async def send(self, message: str, channel: str | None = None) -> None:
+    async def send(
+        self,
+        message: str,
+        channel: str | None = None,
+        attachments: list | None = None,
+    ) -> None:
         if not self._client:
             log.warning("slack_skip_no_token")
             return
@@ -34,6 +39,7 @@ class SlackNotifier:
                 channel=target_channel,
                 text=message,
                 mrkdwn=True,
+                attachments=attachments or [],
             )
         except Exception as exc:
             log.error("slack_send_failed", error=str(exc))
